@@ -34,7 +34,6 @@
 #include <string.h>
 #include <termios.h>
 #include <unistd.h>
-#include "libfaim/aim.h"
 #include <wchar.h>
 #include <glib.h>
 #ifdef HAVE_LIBZEPHYR
@@ -115,13 +114,6 @@ typedef struct _owl_fake_HV HV;
 
 #define OWL_EDITWIN_STYLE_MULTILINE 0
 #define OWL_EDITWIN_STYLE_ONELINE   1
-
-#define OWL_PROTOCOL_ZEPHYR         0
-#define OWL_PROTOCOL_AIM            1
-#define OWL_PROTOCOL_JABBER         2
-#define OWL_PROTOCOL_ICQ            3
-#define OWL_PROTOCOL_YAHOO          4
-#define OWL_PROTOCOL_MSN            5
 
 #define OWL_MESSAGE_DIRECTION_NONE  0
 #define OWL_MESSAGE_DIRECTION_IN    1
@@ -576,24 +568,14 @@ typedef struct _owl_global {
   owl_colorpair_mgr cpmgr;
   pid_t newmsgproc_pid;
   owl_regex search_re;
-  aim_session_t aimsess;
-  aim_conn_t bosconn;
-  int aim_loggedin;         /* true if currently logged into AIM */
-  GSource *aim_event_source; /* where we get our AIM events from */
-  char *aim_screenname;     /* currently logged in AIM screen name */
-  char *aim_screenname_for_filters;     /* currently logged in AIM screen name */
-  owl_buddylist buddylist;  /* list of logged in AIM buddies */
   GQueue *messagequeue;     /* for queueing up aim and other messages */
   owl_dict styledict;       /* global dictionary of available styles */
   char *response;           /* response to the last question asked */
   int havezephyr;
-  int haveaim;
-  int ignoreaimlogin;
   owl_zbuddylist zbuddies;
   GList *zaldlist;
   int pseudologin_notify;
   struct termios startup_tio;
-  guint aim_nop_timer;
   int load_initial_subs;
   FILE *debug_file;
   char *kill_buffer;

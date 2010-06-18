@@ -155,8 +155,6 @@ dnl Shut gcc up about zero-length format strings; the warning's apparently for
 dnl efficiency reasons, which is bogus for custom functions.
 AX_APPEND_COMPILE_FLAGS([-Wno-format-zero-length],[AM_CFLAGS])
 
-AX_APPEND_COMPILE_FLAGS([-Wno-pointer-sign -Wno-empty-body -Wno-unused-value],[LIBFAIM_CFLAGS])
-
 AM_CONDITIONAL([ENABLE_ZCRYPT], [test "$HAVE_DES_STRING_TO_KEY" && dnl
                                  test "$HAVE_DES_KEY_SCHED" && dnl
                                  test "$HAVE_DES_ECB_ENCRYPT"])
@@ -168,7 +166,6 @@ dnl Define __EXTENSIONS__ for strcasecmp on Solaris.
 AM_CFLAGS="$AM_CFLAGS -D__EXTENSIONS__"
 
 AC_SUBST([AM_CFLAGS])
-AC_SUBST([LIBFAIM_CFLAGS])
 
 AC_SUBST(XSUBPPDIR)
 AC_SUBST(XSUBPPFLAGS)
@@ -184,5 +181,5 @@ AC_CONFIG_LIBOBJ_DIR([compat])
 AC_CHECK_DECLS([memrchr])
 AC_REPLACE_FUNCS([memrchr])
 
-AC_CONFIG_FILES([Makefile compat/Makefile libfaim/Makefile perl/Makefile perl/modules/Makefile])
+AC_CONFIG_FILES([Makefile compat/Makefile perl/Makefile perl/modules/Makefile])
 AC_OUTPUT

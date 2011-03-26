@@ -3362,10 +3362,9 @@ void owl_function_toggleoneline(void)
   owl_mainwin_redisplay(owl_global_get_mainwin(&g));
 }
 
-void G_GNUC_PRINTF(1, 2) owl_function_error(const char *fmt, ...)
+void _owl_function_verror(bool force_adminmsg, const char *fmt, va_list ap)
 {
   static int in_error = 0;
-  va_list ap;
   char *buff;
   const char *nl;
 
@@ -3375,9 +3374,7 @@ void G_GNUC_PRINTF(1, 2) owl_function_error(const char *fmt, ...)
     return;
   }
 
-  va_start(ap, fmt);
   buff = g_strdup_vprintf(fmt, ap);
-  va_end(ap);
 
   owl_function_debugmsg("ERROR: %s", buff);
   owl_function_log_err(buff);
@@ -3390,7 +3387,7 @@ void G_GNUC_PRINTF(1, 2) owl_function_error(const char *fmt, ...)
     suppress the call in that case, to try to avoid infinite looping.
   */
 
-  if(nl && *(nl + 1) && in_error == 1) {
+  if (in_error == 1 && (force_adminmsg || (nl && *(nl + 1)))) {
     /* Multiline error */
     owl_function_adminmsg("ERROR", buff);
   } else {
@@ -3400,6 +3397,22 @@ void G_GNUC_PRINTF(1, 2) owl_function_error(const char *fmt, ...)
   g_free(buff);
 
   in_error--;
+}
+
+void G_GNUC_PRINTF(1, 2) owl_function_error(const char *fmt, ...)
+{
+  va_list ap;
+  va_start(ap, fmt);
+  _owl_function_verror(false, fmt, ap);
+  va_end(ap);
+}
+
+void G_GNUC_PRINTF(1, 2) owl_function_adminmsg_error(const char *fmt, ...)
+{
+  va_list ap;
+  va_start(ap, fmt);
+  _owl_function_verror(true, fmt, ap);
+  va_end(ap);
 }
 
 void owl_function_log_err(const char *string)

@@ -159,26 +159,27 @@ void owl_zwrite_populate_zsig(owl_zwrite *z)
   z->zsig = owl_perlconfig_execute(owl_global_get_zsigfunc(&g));
 }
 
-void owl_zwrite_send_ping(const owl_zwrite *z)
+/* send_notification(recipient, class, instance) */
+void owl_zwrite_send_notification(void (*send_notification)(const char *, const char *, const char *), const owl_zwrite *z)
 {
-  int i, j;
+  int i, length;
   char *to;
 
-  if (z->noping) return;
-  
-  if (strcasecmp(z->class, "message")) {
-    return;
-  }
-
-  /* if there are no recipients we won't send a ping, which
+  /* if there are no recipients we won't send a notification, which
      is what we want */
-  j=owl_list_get_size(&(z->recips));
-  for (i=0; i<j; i++) {
+  length = owl_list_get_size(&z->recips);
+  for (i = 0; i < length; i++) {
     to = owl_zwrite_get_recip_n_with_realm(z, i);
-    send_ping(to, z->class, z->inst);
+    send_notification(to, z->class, z->inst);
     g_free(to);
   }
+}
 
+void owl_zwrite_send_ping(const owl_zwrite *z)
+{
+  if (z->noping) return;
+  if (strcasecmp(z->class, "message")) return;
+  owl_zwrite_send_notification(*send_ping, z);
 }
 
 /* Set the message with no post-processing*/

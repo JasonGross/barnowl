@@ -434,6 +434,38 @@ static owl_variable variables_to_init[] = {
                       "                     user.\n",
                       NULL, owl_variable_exposure_set, NULL /* use default for get */ ),
 
+  OWLVAR_BOOL_FULL( "zch" /* %OwlVarStub */, 1,
+                    "controls whether or not barnowl should send and respond to zephyr client hints",
+                    "The description of zephyr client hints is copied from\n"
+                    "/mit/geofft/Public/zephyr-hints-proposal.txt.\n"
+                    "Zephyr Client Hints\n"
+                    "\n"
+                    "There are times when a zephyr client could benefit from querying other\n"
+                    "zephyr clients of a certain user and modify its own behavior based on\n"
+                    "the result. This spec proposes a mechanism by which this can happen.\n"
+                    "\n"
+                    "\n"
+                    "Hints Currently Supported by Barnowl\n"
+                    "\n"
+                    "   ping   - Every ZCH client must sub here. If there is nobody subscribed,\n"
+                    "            then other ZCH queries are meaningless.\n"
+                    "\n"
+                    "   unping - Some clients have an option to display opcode PING messages,\n"
+                    "            much like AIM, XMPP, etc. have typing indicators; an UNPING on ^C would\n"
+                    "            allow the implementation of a typing indicator. Since only PING messages\n"
+                    "            are traditionally dropped by clients, you should only send UNPING if the\n"
+                    "            recipient has the unping hint.\n",
+                    NULL, owl_variable_zch_set, NULL /* use default for get */ ),
+
+  OWLVAR_BOOL( "zch:txping" /* %OwlVarStub:zch_txping */, 1,
+               "send extended pings and unpings (i.e., typing notifications)",
+               "See the description for zch.\n" ),
+
+  OWLVAR_BOOL_FULL( "zch:rxping" /* %OwlVarStub:zch_rxping */, 1,
+                    "display extended pings and unpings (i.e., typing notifications)",
+                    "See the description for zch.\n",
+                    NULL, owl_variable_zch_rxping_set, NULL /* use default for get */ ),
+
   /* This MUST be last... */
   { NULL, 0, NULL, 0, NULL, NULL, NULL, NULL,
     NULL, NULL, NULL, NULL, NULL, NULL }
@@ -550,6 +582,39 @@ int owl_variable_exposure_set(owl_variable *v, const void *newval)
   if (ret != 0)
     return ret;
   return owl_variable_string_set_default(v, owl_zephyr_normalize_exposure(newval));
+}
+
+int owl_variable_zch_generic_set(owl_variable *v, const void *newval, const char *class, const char *instance)
+{
+#ifdef HAVE_LIBZEPHYR
+  int ret = 0;
+  ZSubscription_t *subs = g_new(ZSubscription_t, 1);
+  subs[0].zsub_class = g_strdup(class);
+  subs[0].zsub_classinst = g_strdup(instance);
+  subs[0].zsub_recipient = g_strdup("%me%");
+  if (*(const int*)newval)
+    ret = owl_zephyr_loadsubs_helper(subs, 1);
+  else if (owl_global_is_havezephyr(&g))
+    ret = owl_zephyr_unsub(class, instance, "%me%");
+  if (ret != 0)
+    return ret;
+#endif
+  return owl_variable_bool_set_default(v, newval);
+}
+
+int owl_variable_zch_feature_set(owl_variable *v, const void *newval, const char *feature)
+{
+  return owl_variable_zch_generic_set(v, newval, "__zch", feature);
+}
+
+int owl_variable_zch_set(owl_variable *v, const void *newval)
+{
+  return owl_variable_zch_feature_set(v, newval, "ping");
+}
+
+int owl_variable_zch_rxping_set(owl_variable *v, const void *newval)
+{
+  return owl_variable_zch_feature_set(v, newval, "unping");
 }
 
 /**************************************************************************/

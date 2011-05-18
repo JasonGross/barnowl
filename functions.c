@@ -353,11 +353,23 @@ void owl_function_zwrite_setup(owl_zwrite *z)
     owl_zwrite_send_ping(z);
   }
 
+  if (owl_global_is_zch_txping(&g))
+    owl_zch_zwrite_send_ping(z);
+  
 
   owl_function_write_setup("zephyr");
   owl_function_start_edit_win(z->zwriteline,
                               &owl_callback_zwrite,
-                              z, (void(*)(void*))owl_zwrite_delete);
+                              z, (void(*)(void*))owl_function_zwrite_cleanup);
+}
+
+void owl_function_zwrite_cleanup(owl_zwrite *z)
+{
+  /* send an unping if necessary */
+  if (owl_global_is_zch_txping(&g))
+    owl_zch_zwrite_send_unping(z);
+
+  owl_zwrite_delete(z);
 }
 
 void owl_function_aimwrite_setup(const char *to)

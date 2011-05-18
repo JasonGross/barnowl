@@ -666,6 +666,15 @@ const char *owl_zephyr_get_zsig(const void *n, int *k)
 int send_zephyr(const char *opcode, const char *zsig, const char *class, const char *instance, const char *recipient, const char *message)
 {
 #ifdef HAVE_LIBZEPHYR
+  return send_zephyr_get_uid(opcode, zsig, class, instance, recipient, message, NULL);
+#else
+  return 0;
+#endif
+}
+
+#ifdef HAVE_LIBZEPHYR
+int send_zephyr_get_uid(const char *opcode, const char *zsig, const char *class, const char *instance, const char *recipient, const char *message, ZUnique_Id_t *z_uid)
+{
   Code_t ret;
   ZNotice_t notice;
     
@@ -697,19 +706,19 @@ int send_zephyr(const char *opcode, const char *zsig, const char *class, const c
 
   /* ret=ZSendNotice(&notice, ZAUTH); */
   ret=ZSrvSendNotice(&notice, ZAUTH, send_zephyr_helper);
+
+  if (z_uid != NULL) *z_uid = notice.z_uid;
   
   /* free then check the return */
   g_free(notice.z_message);
   ZFreeNotice(&notice);
   if (ret != ZERR_NONE) {
     owl_function_error("Error sending zephyr: %s", error_message(ret));
-    return(ret);
+    return ret;
   }
-  return(0);
-#else
-  return(0);
-#endif
+  return 0;
 }
+#endif
 
 #ifdef HAVE_LIBZEPHYR
 Code_t send_zephyr_helper(ZNotice_t *notice, char *buf, int len, int wait)
@@ -721,9 +730,18 @@ Code_t send_zephyr_helper(ZNotice_t *notice, char *buf, int len, int wait)
 void send_ping(const char *to, const char *zclass, const char *zinstance)
 {
 #ifdef HAVE_LIBZEPHYR
-  send_zephyr("PING", "", zclass, zinstance, to, "");
+  send_ping_get_uid(to, zclass, zinstance);
 #endif
 }
+
+#ifdef HAVE_LIBZEPHYR
+ZUnique_Id_t send_ping_get_uid(const char *to, const char *zclass, const char *zinstance)
+{
+  ZUnique_Id_t rtn;
+  send_zephyr_get_uid("PING", "", zclass, zinstance, to, "", &rtn);
+  return rtn;
+}
+#endif
 
 #ifdef HAVE_LIBZEPHYR
 void owl_zephyr_handle_ack(const ZNotice_t *retnotice)
@@ -739,6 +757,7 @@ void owl_zephyr_handle_ack(const ZNotice_t *retnotice)
     owl_function_error("Detected server failure while receiving acknowledgement");
   } else if (!strcmp(retnotice->z_message, ZSRVACK_SENT)) {
     if (!strcasecmp(retnotice->z_opcode, "ping")) {
+      owl_zephyr_handle_ping_sent(retnotice->z_uid);
       return;
     } else {
       if (strcasecmp(retnotice->z_recipient, ""))
@@ -759,6 +778,9 @@ void owl_zephyr_handle_ack(const ZNotice_t *retnotice)
       }
     }
   } else if (!strcmp(retnotice->z_message, ZSRVACK_NOTSENT)) {
+    if (!strcasecmp(retnotice->z_opcode, "ping"))
+      if (owl_zephyr_handle_ping_not_sent(retnotice->z_uid))
+        return; /* this ping was handled successfully, and we should not do anything else */
     if (retnotice->z_recipient == NULL
         || *retnotice->z_recipient == 0
         || *retnotice->z_recipient == '@') {
@@ -839,7 +861,44 @@ int owl_zephyr_notice_is_ack(const void *n)
   return(0);
 }
 #endif
-  
+
+void owl_zephyr_destination_has_subscriptions(const char *class, const char *instance, const char *recipient,
+    void (*true_callback)(void *), void (*false_callback)(void *), void *data)
+{
+#ifdef HAVE_LIBZEPHYR
+  ZUnique_Id_t z_uid = send_ping_get_uid(recipient, class, instance);
+  owl_global_ping_callbacks_add_callback(&g, z_uid, true_callback, false_callback, data);
+#else
+  false_callback(data);
+#endif
+}
+
+#ifdef HAVE_LIBZEPHYR
+/* returns true if we successfully handled the ack, false otherwise */
+bool owl_zephyr_handle_ping_sent(ZUnique_Id_t z_uid)
+{
+  owl_ping_callback *callback = owl_global_ping_callbacks_pop_callback(&g, z_uid);
+  if (callback) {
+    if (callback->true_callback) callback->true_callback(callback->data);
+    g_free(callback);
+    return true;
+  } else
+    return false;
+}
+
+/* returns true if we successfully handled the ack, false otherwise */
+bool owl_zephyr_handle_ping_not_sent(ZUnique_Id_t z_uid)
+{
+  owl_ping_callback *callback = owl_global_ping_callbacks_pop_callback(&g, z_uid);
+  if (callback) {
+    if (callback->false_callback) callback->false_callback(callback->data);
+    g_free(callback);
+    return true;
+  } else
+    return false;
+}
+#endif
+
 void owl_zephyr_zaway(const owl_message *m)
 {
 #ifdef HAVE_LIBZEPHYR

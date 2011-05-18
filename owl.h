@@ -568,6 +568,15 @@ typedef struct _owl_popexec {
   const owl_io_dispatch *dispatch;
 } owl_popexec;
 
+typedef struct _owl_ping_callback {
+#ifdef HAVE_LIBZEPHYR
+  ZUnique_Id_t z_uid;
+#endif
+  void (*true_callback)(void *);
+  void (*false_callback)(void *);
+  void *data;
+} owl_ping_callback;
+
 typedef struct _OwlGlobalNotifier OwlGlobalNotifier;
 
 typedef struct _owl_global {
@@ -641,6 +650,7 @@ typedef struct _owl_global {
   volatile sig_atomic_t interrupted;
   FILE *debug_file;
   char *kill_buffer;
+  GList *ping_callbacks;
 } owl_global;
 
 /* globals */

@@ -107,6 +107,8 @@ void owl_global_init(owl_global *g) {
   g->timerlist = NULL;
   g->interrupted = FALSE;
   g->kill_buffer = NULL;
+
+  g->ping_callbacks = NULL;
 }
 
 static void _owl_global_init_windows(owl_global *g)
@@ -947,3 +949,31 @@ void owl_global_set_kill_buffer(owl_global *g, const char *kill, int len) {
   g_free(g->kill_buffer);
   g->kill_buffer = g_strndup(kill, len);
 }
+
+#ifdef HAVE_LIBZEPHYR
+/* caller is responsible for freeing return value */
+owl_ping_callback *owl_global_ping_callbacks_pop_callback(owl_global *g, ZUnique_Id_t z_uid)
+{
+  GList *cur = g_list_first(g->ping_callbacks);
+  owl_ping_callback *callback;
+  while (cur) {
+    callback = (owl_ping_callback *)(g_list_nth_data(cur, 0));
+    if (ZCompareUID(&z_uid, &callback->z_uid)) {
+      g_list_free_1(g_list_remove_link(g->ping_callbacks, cur));
+      return callback;
+    }
+    cur = g_list_next(cur);
+  }
+  return NULL;
+}
+
+void owl_global_ping_callbacks_add_callback(owl_global *g, ZUnique_Id_t z_uid, void (*true_callback)(void *), void (*false_callback)(void *), void *data)
+{
+  owl_ping_callback *callback = g_new(owl_ping_callback, 1);
+  callback->z_uid = z_uid;
+  callback->true_callback = true_callback;
+  callback->false_callback = false_callback;
+  callback->data = data;
+  g->ping_callbacks = g_list_append(g->ping_callbacks, (gpointer)callback);
+}
+#endif

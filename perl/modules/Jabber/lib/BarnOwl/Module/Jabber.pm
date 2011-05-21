@@ -54,9 +54,16 @@ no warnings 'redefine';
 
 our $accounts;
 $accounts //= BarnOwl::Module::Jabber::AccountManager->new;
-our $auto_away_timer;
+our $auto_idle_timer;
 our %completion_jids;
 our %feature_support;
+
+use constant {
+    PAUSED_DELAY   => 5,
+    # XXX TODO: Possibly pick better values for the following two.
+    INACTIVE_DELAY => 0,
+    GONE_DELAY     => 0
+};
 
 sub onStart {
     if ( *BarnOwl::queue_message{CODE} ) {
@@ -105,26 +112,51 @@ sub onStart {
 
 $BarnOwl::Hooks::startup->add("BarnOwl::Module::Jabber::onStart");
 
-sub ensure_auto_away_timer {
-    return if defined($auto_away_timer);
-    $auto_away_timer = AnyEvent->timer(after => 5,
-                                       interval => 5,
-                                       cb => \&do_auto_away);
+sub ensure_auto_idle_timer {
+    return if defined($auto_idle_timer);
+    $auto_idle_timer = AnyEvent->timer(after => 1,
+                                       interval => 1,
+                                       cb => \&do_auto_idle);
 }
 
-sub do_auto_away {
+sub do_auto_idle {
     if ( !$accounts->connected() ) {
         # We don't need this timer any more.
-        undef $auto_away_timer;
+        undef $auto_idle_timer;
         return;
     }
 
     # TODO: Instead of polling, provide the necessary hooks for perl
     # to (sanely) track idle time. AIM probably could use this too.
 
+    my $idletime = BarnOwl::getidletime();
+
+    do_auto_away($idletime, @_);
+    do_auto_chat_state_notifications($idletime, @_);
+}
+
+my $auto_chat_state_notification; # TODO: Find a better way to do this?
+sub do_auto_chat_state_notifications {
+    my $idletime = shift;
+    return unless BarnOwl::getvar('jabber:chat_state_notifications') eq 'on';
+
+    if ($auto_chat_state_notification) {
+        if (GONE_DELAY > 0 && $idletime >= GONE_DELAY) {
+            $auto_chat_state_notification->('gone');
+        } elsif (INACTIVE_DELAY > 0 && $idletime >= INACTIVE_DELAY) {
+            $auto_chat_state_notification->('inactive');
+        } elsif (PAUSED_DELAY > 0 && $idletime >= PAUSED_DELAY) {
+            $auto_chat_state_notification->('paused');
+        } else {
+            $auto_chat_state_notification->();
+        }
+    }
+}
+
+sub do_auto_away {
+    my $idletime = shift;
     my $auto_away = BarnOwl::getvar('jabber:auto_away_timeout');
     my $auto_xa = BarnOwl::getvar('jabber:auto_xa_timeout');
-    my $idletime = BarnOwl::getidletime();
 
     my $auto_status = '';
     if ($auto_xa != 0 && $idletime >= (60 * $auto_xa)) {
@@ -446,7 +478,7 @@ sub do_login {
         );
     $acc->connect;
 
-    ensure_auto_away_timer();
+    ensure_auto_idle_timer();
 
     return;
 }
@@ -580,11 +612,20 @@ sub cmd_jwrite {
     push @cmd, '-s', $jwrite_subject if defined($jwrite_subject);
 
     send_chat_state_notification('composing', $jwrite_data);
+    my $last_chat_state = 'composing';
+    $auto_chat_state_notification = sub {
+        my $chat_state = shift || 'composing';
+        if ($chat_state ne $last_chat_state) {
+            send_chat_state_notification($chat_state, $jwrite_data);
+        }
+        $last_chat_state = $chat_state;
+    };
 
     BarnOwl::start_edit(type => 'edit_win', prompt => BarnOwl::quote(@cmd),
                         call_on_cancel => 1,
                         callback => sub {
                             my ($text, $success) = @_;
+                            undef $auto_chat_state_notification;
                             if ($success) {
                                 process_owl_jwrite($jwrite_data, $text);
                             } else {
@@ -1617,9 +1658,9 @@ sub get_message_chat_states {
     my $msg = shift->xml_node;
     my @chat_states = qw(active composing paused inactive gone);
     my @rtn;
-    foreach my $state (@chat_states) {
-        if (scalar $msg->find_all(['http://jabber.org/protocol/chatstates', $state])) {
-            push @rtn, $state;
+    foreach my $chat_state (@chat_states) {
+        if (scalar $msg->find_all(['http://jabber.org/protocol/chatstates', $chat_state])) {
+            push @rtn, $chat_state;
         }
     }
     return @rtn;

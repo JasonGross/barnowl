@@ -92,6 +92,9 @@ sub onStart {
 	BarnOwl::new_variable_int("jabber:connect_timeout",
 				   { default => 10,
 				     summary => 'Seconds to wait before timing out of a connect.'});
+        BarnOwl::new_variable_bool("jabber:chat_state_notifications",
+                                   { default => 1,
+                                     summary => 'Send and display chat state notifications (typing notifications).'});
     } else {
         # Our owl doesn't support queue_message. Unfortunately, this
         # means it probably *also* doesn't support BarnOwl::error. So just
@@ -575,8 +578,18 @@ sub cmd_jwrite {
     push @cmd, '-t', $jwrite_thread if defined($jwrite_thread);
     push @cmd, '-s', $jwrite_subject if defined($jwrite_subject);
 
-    BarnOwl::start_edit_win(BarnOwl::quote(@cmd),
-			    sub { process_owl_jwrite($jwrite_data, $_[0]); });
+    send_chat_state_notification('composing', $jwrite_data);
+
+    BarnOwl::start_edit(type => 'edit_win', prompt => BarnOwl::quote(@cmd),
+                        call_on_cancel => 1,
+                        callback => sub {
+                            my ($text, $success) = @_;
+                            if ($success) {
+                                process_owl_jwrite($jwrite_data, $text);
+                            } else {
+                                send_chat_state_notification('active', $jwrite_data);
+                            }
+                        });
 }
 
 sub cmd_jmuc {
@@ -972,6 +985,38 @@ sub jroster_deauth {
     }
 }
 
+sub send_chat_state_notification {
+    my $chat_state = shift;
+    my $fields = shift;
+    return unless BarnOwl::getvar('jabber:chat_state_notifications') eq 'on';
+    return unless $fields->{type} eq 'chat' || $fields->{type} eq 'groupchat';
+
+    my $acc = $accounts->get_account($fields->{from});
+    unless (defined($acc) && $acc->is_session_ready) {
+        die $acc->jid . " is not connected.\n";
+    }
+
+    my $msg = new AnyEvent::XMPP::IM::Message(
+        to   => $fields->{to},
+        from => $acc->jid, # Use the full JID from the account; we may
+                           # have had a reconnect in the meantime.
+        type => $fields->{type});
+    $msg->thread($fields->{thread}) if defined($fields->{thread});
+    $msg->add_subject($fields->{subject}) if defined($fields->{subject});
+    append_chat_state_notification($chat_state, $msg);
+
+    $msg->send($acc->connection);
+}
+
+sub append_chat_state_notification {
+    my $chat_state = shift;
+    my $msg = shift;
+    $msg->append_creation({
+            defns => 'http://jabber.org/protocol/chatstates',
+            node  => { name => $chat_state }
+        });
+}
+
 ################################################################################
 ### Owl Callbacks
 sub process_owl_jwrite {
@@ -992,6 +1037,10 @@ sub process_owl_jwrite {
     $msg->thread($fields->{thread}) if defined($fields->{thread});
     $msg->add_subject($fields->{subject}) if defined($fields->{subject});
     $msg->add_body($body) if defined($body);
+
+    if (BarnOwl::getvar('jabber:chat_state_notifications') eq 'on') {
+        append_chat_state_notification('active', $msg);
+    }
 
     if ( $fields->{type} ne 'groupchat') {
         # Queue an outgoing message for personals.

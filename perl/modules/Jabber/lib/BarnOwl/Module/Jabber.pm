@@ -56,6 +56,7 @@ our $accounts;
 $accounts //= BarnOwl::Module::Jabber::AccountManager->new;
 our $auto_away_timer;
 our %completion_jids;
+our %feature_support;
 
 sub onStart {
     if ( *BarnOwl::queue_message{CODE} ) {
@@ -990,6 +991,8 @@ sub send_chat_state_notification {
     my $fields = shift;
     return unless BarnOwl::getvar('jabber:chat_state_notifications') eq 'on';
     return unless $fields->{type} eq 'chat' || $fields->{type} eq 'groupchat';
+    my $toJID = bare_jid($fields->{to});
+    return unless $feature_support{$toJID}{chat_state_notifications};
 
     my $acc = $accounts->get_account($fields->{from});
     unless (defined($acc) && $acc->is_session_ready) {
@@ -1083,6 +1086,14 @@ sub on_disconnect {
 
 sub on_message {
     my ($acc, $msg) = @_;
+
+    if ($msg->type eq 'chat' || $msg->type eq 'groupchat') {
+        my $from = bare_jid($msg->from);
+        my @chat_states = get_message_chat_states($msg);
+        # XXX TODO: Figure out if (when) we ever want to invalidate the cache.
+        $feature_support{$from}{chat_state_notifications} ||= scalar @chat_states;
+    }
+
     if (defined($msg->any_body()) || BarnOwl::getvar('jabber:spew') eq 'on') {
         BarnOwl::queue_message(message_to_obj($acc, $msg, { direction => 'in' }));
     }
@@ -1600,6 +1611,18 @@ sub guess_jwrite {
     }
 
     return @matches;
+}
+
+sub get_message_chat_states {
+    my $msg = shift->xml_node;
+    my @chat_states = qw(active composing paused inactive gone);
+    my @rtn;
+    foreach my $state (@chat_states) {
+        if (scalar $msg->find_all(['http://jabber.org/protocol/chatstates', $state])) {
+            push @rtn, $state;
+        }
+    }
+    return @rtn;
 }
 
 ################################################################################

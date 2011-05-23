@@ -7,6 +7,7 @@ use BarnOwl::Message::Admin;
 use BarnOwl::Message::AIM;
 use BarnOwl::Message::Generic;
 use BarnOwl::Message::Loopback;
+use BarnOwl::Message::Meta;
 use BarnOwl::Message::Zephyr;
 
 sub new {
@@ -38,6 +39,7 @@ sub is_outgoing { return (shift->{"direction"} eq "out"); }
 sub is_deleted  { return shift->{"deleted"}; }
 
 sub is_admin    { return (shift->{"type"} eq "admin"); }
+sub is_meta     { return (shift->{"type"} eq "meta"); }
 sub is_generic  { return (shift->{"type"} eq "generic"); }
 sub is_zephyr   { return (shift->{"type"} eq "zephyr"); }
 sub is_aim      { return (shift->{"type"} eq "AIM"); }

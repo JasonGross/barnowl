@@ -662,6 +662,57 @@ void owl_function_prevmsg_notdeleted(void)
   owl_function_prevmsg_full(NULL, 1, 1);
 }
 
+void owl_function_delete_and_expunge_message(int n)
+{
+  int curmsg = owl_global_get_curmsg(&g);
+  owl_messagelist *ml = owl_global_get_msglist(&g);
+  owl_view *v = owl_global_get_current_view(&g);
+  const owl_message *m = owl_view_get_element(v, curmsg);
+  int lastmsgid = 0;
+
+  if (m)
+    lastmsgid = owl_message_get_id(m);
+
+  /* delete and expunge the message */
+  owl_messagelist_delete_and_expunge_element(ml, n);
+
+  /* update all views (we only have one right now) */
+  owl_view_recalculate(v);
+
+  /* find where the new position should be
+     (as close as possible to where we last where) */
+  curmsg = owl_view_get_nearest_to_msgid(v, lastmsgid);
+  if (curmsg > owl_view_get_size(v) - 1)
+    curmsg = owl_view_get_size(v) - 1;
+  if (curmsg < 0)
+    curmsg = 0;
+  owl_global_set_curmsg(&g, curmsg);
+  owl_function_calculate_topmsg(OWL_DIRECTION_NONE);
+  /* if there are no messages set the direction to down in case we
+     delete everything upwards */
+  owl_global_set_direction_downwards(&g);
+
+  owl_mainwin_redisplay(owl_global_get_mainwin(&g));
+}
+
+void owl_function_delete_and_expunge_cur(bool exclaim_success)
+{
+  int curmsg;
+  owl_view *v = owl_global_get_current_view(&g);
+
+  /* bail if there's no current message */
+  if (owl_view_get_size(v) < 1) {
+    owl_function_error("No current message to delete");
+    return;
+  }
+
+  /* delete the current message */
+  curmsg = owl_global_get_curmsg(&g);
+  owl_function_delete_and_expunge_message(curmsg);
+  if (exclaim_success)
+    owl_function_makemsg("Message deleted and expunged");
+}
+
 /* if move_after is 1, moves after the delete */
 void owl_function_deletecur(int move_after)
 {
@@ -1632,6 +1683,19 @@ void owl_function_show_variable(const char *name)
   owl_variable_get_help(owl_global_get_vardict(&g), name, &fm);
   owl_function_popless_fmtext(&fm);
   owl_fmtext_cleanup(&fm);
+}
+
+void owl_function_delete_and_expunge_by_id(int id, bool exclaim_success)
+{
+  const owl_messagelist *ml = owl_global_get_msglist(&g);
+  int msg = owl_messagelist_get_index_by_id(ml, id);
+  if (msg < 0) {
+    owl_function_error("No message with id %d: unable to delete", id);
+  } else {
+    owl_function_delete_and_expunge_message(msg);
+    if (exclaim_success)
+      owl_function_makemsg("Message deleted and expunged");
+  }
 }
 
 /* note: this applies to global message list, not to view.

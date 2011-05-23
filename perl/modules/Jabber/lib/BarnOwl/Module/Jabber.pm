@@ -1131,8 +1131,12 @@ sub on_message {
     if ($msg->type eq 'chat' || $msg->type eq 'groupchat') {
         my $from = bare_jid($msg->from);
         my @chat_states = get_message_chat_states($msg);
-        # XXX TODO: Figure out if (when) we ever want to invalidate the cache.
-        $feature_support{$from}{chat_state_notifications} ||= scalar @chat_states;
+        if (scalar @chat_states) {
+            # XXX TODO: Figure out if (when) we ever want to invalidate the cache.
+            $feature_support{$from}{chat_state_notifications} = 1;
+            on_chat_state_notification($chat_states[0], $acc, $msg);
+            return unless defined $msg->any_body(); # don't spew chat state notifications
+        }
     }
 
     if (defined($msg->any_body()) || BarnOwl::getvar('jabber:spew') eq 'on') {
@@ -1143,6 +1147,31 @@ sub on_message {
 sub on_message_error {
     my ($acc, $error) = @_;
     BarnOwl::queue_message(message_error_to_obj($error, { direction => 'in' }));
+}
+
+sub on_chat_state_notification {
+    my ($chat_state, $acc, $msg) = @_;
+    my $from = bare_jid($msg->from);
+    return unless BarnOwl::getvar('jabber:chat_state_notifications') eq 'on';
+
+    my $message = "";
+
+    $chat_state = lc($chat_state); # normalization.  Not sure if this is necessary...
+
+    # Copy gchat's notifications
+    if ($chat_state eq "active" || $chat_state eq "gone" || $chat_state eq "inactive") {
+        # Clear the last chat state.  We should figure out a better way to do this,
+        # so that we don't e.g., clear error messages
+        #
+        # Also, gchat doesn't distinguish between 'gone' and 'inactive'.
+        # Should we?
+    } elsif ($chat_state eq "composing") {
+        $message = "$from is typing...";
+    } elsif ($chat_state eq "paused") {
+        $message = "$from has entered text."
+    }
+
+    BarnOwl::message($message);
 }
 
 sub on_presence_xml {

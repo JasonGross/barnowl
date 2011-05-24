@@ -100,9 +100,23 @@ sub onStart {
 	BarnOwl::new_variable_int("jabber:connect_timeout",
 				   { default => 10,
 				     summary => 'Seconds to wait before timing out of a connect.'});
-        BarnOwl::new_variable_bool("jabber:chat_state_notifications",
-                                   { default => 1,
-                                     summary => 'Send and display chat state notifications (typing notifications).'});
+        BarnOwl::new_variable_enum("jabber:chat_state_notifications",
+            {
+                default        => 'messagelist',
+                valid_settings => [qw(messagelist sepbar off)],
+                summary        => 'Send and display chat state notifications (typing notifications).',
+                description    => "Controls whether or not you send and display chat state notifications\n"
+                                . "as per XEP-0085.\n\n"
+                                . " messagelist - Send chat state notifications, and display incoming\n"
+                                . "               chat state notifications in the message list.  Old\n"
+                                . "               notifications are deleted as you get new ones from\n"
+                                . "               the same person.\n\n"
+                                . " sepbar      - Send chat state notifications, and display incoming\n"
+                                . "               chat state notifications below the sepbar. (The sepbar\n"
+                                . "               is where you see what the current message number is.)\n\n"
+                                . " off         - Do not send chat state notifications, and do not\n"
+                                . "               display any that other clients erroneously send.\n"
+            });
     } else {
         # Our owl doesn't support queue_message. Unfortunately, this
         # means it probably *also* doesn't support BarnOwl::error. So just
@@ -1030,7 +1044,7 @@ sub jroster_deauth {
 sub send_chat_state_notification {
     my $chat_state = shift;
     my $fields = shift;
-    return unless BarnOwl::getvar('jabber:chat_state_notifications') eq 'on';
+    return if BarnOwl::getvar('jabber:chat_state_notifications') eq 'off';
     return unless $fields->{type} eq 'chat' || $fields->{type} eq 'groupchat';
     my $toJID = bare_jid($fields->{to});
     return unless $feature_support{$toJID}{chat_state_notifications};
@@ -1082,7 +1096,7 @@ sub process_owl_jwrite {
     $msg->add_subject($fields->{subject}) if defined($fields->{subject});
     $msg->add_body($body) if defined($body);
 
-    if (BarnOwl::getvar('jabber:chat_state_notifications') eq 'on') {
+    unless (BarnOwl::getvar('jabber:chat_state_notifications') eq 'off') {
         append_chat_state_notification('active', $msg);
     }
 
@@ -1149,29 +1163,36 @@ sub on_message_error {
     BarnOwl::queue_message(message_error_to_obj($error, { direction => 'in' }));
 }
 
+our %chat_state_messages;
 sub on_chat_state_notification {
     my ($chat_state, $acc, $msg) = @_;
     my $from = bare_jid($msg->from);
-    return unless BarnOwl::getvar('jabber:chat_state_notifications') eq 'on';
+    return if BarnOwl::getvar('jabber:chat_state_notifications') eq 'off';
 
-    my $message = "";
+    if (BarnOwl::getvar('jabber:chat_state_notifications') eq 'messagelist') { # queue up a meta message for this notification
+        $chat_state_messages{$from}->delete_and_expunge() if $chat_state_messages{$from};
+        my $props = { direction => 'in', 'type' => 'meta', 'opcode' => $chat_state };
+        $chat_state_messages{$from} = BarnOwl::queue_message(message_to_obj($acc, $msg, $props));
+    } else { # display a one-liner below the sepbar
+        my $message = "";
 
-    $chat_state = lc($chat_state); # normalization.  Not sure if this is necessary...
+        $chat_state = lc($chat_state); # normalization.  Not sure if this is necessary...
 
-    # Copy gchat's notifications
-    if ($chat_state eq "active" || $chat_state eq "gone" || $chat_state eq "inactive") {
-        # Clear the last chat state.  We should figure out a better way to do this,
-        # so that we don't e.g., clear error messages
-        #
-        # Also, gchat doesn't distinguish between 'gone' and 'inactive'.
-        # Should we?
-    } elsif ($chat_state eq "composing") {
-        $message = "$from is typing...";
-    } elsif ($chat_state eq "paused") {
-        $message = "$from has entered text."
+        # Copy gchat's notifications
+        if ($chat_state eq "active" || $chat_state eq "gone" || $chat_state eq "inactive") {
+            # Clear the last chat state.  We should figure out a better way to do this,
+            # so that we don't e.g., clear error messages
+            #
+            # Also, gchat doesn't distinguish between 'gone' and 'inactive'.
+            # Should we?
+        } elsif ($chat_state eq "composing") {
+            $message = "$from is typing...";
+        } elsif ($chat_state eq "paused") {
+            $message = "$from has entered text."
+        }
+
+        BarnOwl::message($message);
     }
-
-    BarnOwl::message($message);
 }
 
 sub on_presence_xml {

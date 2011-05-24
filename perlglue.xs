@@ -513,6 +513,21 @@ new_variable_bool(name, ival, summ, desc)
 				      desc,
 				      ival);
 
+void
+new_variable_enum(name, ival, summ, desc, validset)
+	const char * name
+	int ival
+	const char * summ
+	const char * desc
+	const char * validset
+	CODE:
+	owl_variable_dict_newvar_enum(owl_global_get_vardict(&g),
+				      name,
+				      summ,
+				      desc,
+				      ival,
+				      validset);
+
 MODULE = BarnOwl		PACKAGE = BarnOwl::Editwin
 
 int

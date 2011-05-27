@@ -76,6 +76,27 @@ Called to check away status for all protocol handlers.  Protocol
 handlers should return a true value if any account of the user is away
 for the given protocol, and a false value otherwise.
 
+=item $addBuddy
+
+Called with the name of the protocol and the name of a buddy to be
+added whenever the user deletes a non-zephyr buddy, for all protocol
+handlers. A handler should return a true value if the name of the
+protocol matches (case insensitively) the protocol of the handler,
+regardless of whether or not the buddy already exists in the buddy
+list, and a false value otherwise. The user is given an error message
+that no protocol matches if the result from every handler is false,
+and is a success message if the result from some handler is true.
+
+=item $deleteBuddy
+
+Called with the name of the protocol and the name of a buddy to be
+deleted whenever the user deletes a non-zephyr buddy, for all protocol
+handlers. A handler should return a true value if the name of the
+protocol matches (case insensitively) the protocol of the handler, and
+a false value otherwise. The user is given an error message that no
+protocol matches if the result from every handler is false, and is a
+success message if the result from some handler is true.
+
 =item $getQuickstart
 
 Called by :show quickstart to display 2-5 lines of help on how to
@@ -95,6 +116,7 @@ our @EXPORT_OK = qw($startup $shutdown
                     $receiveMessage $newMessage
                     $mainLoop $getBuddyList
                     $awayOn $awayOff $getIsAway
+                    $addBuddy $deleteBuddy
                     $getQuickstart);
 
 our %EXPORT_TAGS = (all => [@EXPORT_OK]);
@@ -112,6 +134,8 @@ our $getQuickstart = BarnOwl::Hook->new;
 our $awayOn = BarnOwl::Hook->new;
 our $awayOff = BarnOwl::Hook->new;
 our $getIsAway = BarnOwl::Hook->new;
+our $addBuddy = BarnOwl::Hook->new;
+our $deleteBuddy = BarnOwl::Hook->new;
 
 # Internal startup/shutdown routines called by the C code
 
@@ -240,6 +264,18 @@ sub _away_off {
 sub _get_is_away {
     my @is_away = grep { $_ } $getIsAway->run();
     return scalar @is_away;
+}
+
+sub _add_buddy {
+    my ($protocol, $buddy) = @_;
+    my @success = $addBuddy->run(lc($protocol), $buddy);
+    return scalar(grep { $_ } @success);
+}
+
+sub _delete_buddy {
+    my ($protocol, $buddy) = @_;
+    my @success = $deleteBuddy->run(lc($protocol), $buddy);
+    return scalar(grep { $_ } @success);
 }
 
 sub _new_command {

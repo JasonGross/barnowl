@@ -229,12 +229,14 @@ void owl_cmd_add_defaults(owl_cmddict *cd)
   OWLCMD_ARGS("addbuddy", owl_command_addbuddy, OWL_CTX_INTERACTIVE,
 	      "add a buddy to a buddylist",
 	      "addbuddy <protocol> <screenname>",
-	      "Add the named buddy to your buddylist.  <protocol> can be zephyr\n"),
+	      "Add the named buddy to your buddylist.  <protocol> can be zephyr or\n"
+              "any supported by a loaded perl module\n"),
 
   OWLCMD_ARGS("delbuddy", owl_command_delbuddy, OWL_CTX_INTERACTIVE,
 	      "delete a buddy from a buddylist",
 	      "delbuddy <protocol> <screenname>",
-	      "Delete the named buddy from your buddylist.  <protocol> can be zephyr\n"),
+	      "Delete the named buddy from your buddylist.  <protocol> can be zephyr or\n"
+              "any supported by a loaded perl module\n"),
 
   OWLCMD_ARGS("smartzpunt", owl_command_smartzpunt, OWL_CTX_INTERACTIVE,
 	      "creates a zpunt based on the current message",
@@ -1083,36 +1085,52 @@ void owl_command_version(void)
 
 char *owl_command_addbuddy(int argc, const char *const *argv, const char *buff)
 {
-  if (argc!=3) {
+  bool protocol_exists;
+  if (argc != 3) {
     owl_function_makemsg("usage: addbuddy <protocol> <buddyname>");
-    return(NULL);
+    return NULL;
   }
 
   if (!strcasecmp(argv[1], "zephyr")) {
     owl_zephyr_addbuddy(argv[2]);
     owl_function_makemsg("%s added as zephyr buddy", argv[2]);
+  } else if (owl_perlconfig_is_function("BarnOwl::Hooks::_add_buddy")) {
+    protocol_exists = owl_perlconfig_perl_call_bool("BarnOwl::Hooks::_add_buddy", argc - 1, argv + 1);
+    if (protocol_exists) {
+      owl_function_makemsg("%s added as %s buddy", argv[2], argv[1]);
+    } else {
+      owl_function_makemsg("addbuddy: the protocol '%s' is not currently supported", argv[1]);
+    }
   } else {
     owl_function_makemsg("addbuddy: currently the only supported protocol is 'zephyr'");
   }
 
-  return(NULL);
+  return NULL;
 }
 
 char *owl_command_delbuddy(int argc, const char *const *argv, const char *buff)
 {
-  if (argc!=3) {
+  bool protocol_exists;
+  if (argc != 3) {
     owl_function_makemsg("usage: delbuddy <protocol> <buddyname>");
-    return(NULL);
+    return NULL;
   }
 
   if (!strcasecmp(argv[1], "zephyr")) {
     owl_zephyr_delbuddy(argv[2]);
     owl_function_makemsg("%s deleted as zephyr buddy", argv[2]);
+  } else if (owl_perlconfig_is_function("BarnOwl::Hooks::_delete_buddy")) {
+    protocol_exists = owl_perlconfig_perl_call_bool("BarnOwl::Hooks::_delete_buddy", argc - 1, argv + 1);
+    if (protocol_exists) {
+      owl_function_makemsg("%s deleted as %s buddy", argv[2], argv[1]);
+    } else {
+      owl_function_makemsg("delbuddy: the protocol '%s' is not currently supported", argv[1]);
+    }
   } else {
     owl_function_makemsg("delbuddy: currently the only supported protocol is 'zephyr'");
   }
 
-  return(NULL);
+  return NULL;
 }
 
 char *owl_command_startup(int argc, const char *const *argv, const char *buff)

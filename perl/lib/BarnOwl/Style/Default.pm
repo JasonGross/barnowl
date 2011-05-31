@@ -15,6 +15,8 @@ sub format_message
 
     if ( $m->is_loginout) {
         $fmt = $self->format_login($m);
+    } elsif ($m->is_meta) {
+        $fmt = $self->format_meta($m);
     } elsif($m->is_ping && $m->is_personal) {
         $fmt = $self->format_ping($m);
     } elsif($m->is_admin) {
@@ -76,6 +78,25 @@ sub format_admin {
     my $self = shift;
     my $m = shift;
     return "\@bold(OWL ADMIN)\n" . $self->indent_body($m);
+}
+
+sub format_meta {
+    my $self = shift;
+    my $m = shift;
+    my $opcode = $m->{"opcode"};
+
+    $opcode = lc($opcode); # Normalize
+    if ($opcode =~ /active|gone|inactive|composing|paused/) { # chat state notification
+        my $chat_state = "is " . $opcode;
+        if ($opcode eq "composing") {
+            $chat_state = "is typing...";
+        } elsif ($opcode eq "paused") {
+            $chat_state = "has entered text.";
+        }
+        return "\@b(" . $m->pretty_sender . ") $chat_state";
+    } else { # unrecognized, ignore?
+        return "";
+    }
 }
 
 sub format_chat {

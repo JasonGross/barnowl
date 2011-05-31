@@ -22,7 +22,7 @@ use POSIX qw(strftime);
 use Time::Duration;
 use Data::Dumper;
 
-use Net::OSCAR;
+use Net::OSCAR qw(:standard);
 
 use Getopt::Long;
 Getopt::Long::Configure(qw(no_getopt_compat prefix_pattern=-|--));
@@ -32,7 +32,8 @@ use utf8;
 our %vars;
 
 use constant {
-    MIN_IDLE_SECONDS_TO_SET_IDLE => 60
+    MIN_IDLE_SECONDS_TO_SET_IDLE => 60,
+    PAUSED_DELAY                 => 5
 };
 
 #####################################################################
@@ -40,7 +41,6 @@ use constant {
 #  * aimset foo alias bar doesn't persist between login sessions
 #
 # TODO:
-#  * Implement typing notifications
 #  * Completion for things other than aimwrite
 #  * Maybe impplement the following?
 #    - eviling
@@ -374,6 +374,22 @@ sub register_owl_variables {
             default => 1,
             summary => 'automatically come back from being away if you :aimwrite'
         });
+    BarnOwl::new_variable_enum("aim:typing_notifications",
+        {
+            default       => 'messagelist',
+            validsettings => [qw(messagelist sepbar off)],
+            summary       => 'Send and display typing notifications.',
+            description   => "Controls how you display typing notifications, if at all.\n\n"
+                           . " messagelist - Send typing notifications, and display incoming\n"
+                           . "               typing notifications in the message list.  Old\n"
+                           . "               notifications are deleted as you get new ones from\n"
+                           . "               the same person.\n\n"
+                           . " sepbar      - Send typing notifications, and display incoming\n"
+                           . "               typing notifications below the sepbar. (The sepbar\n"
+                           . "               is where you see what the current message number is.)\n\n"
+                           . " off         - Do not send typing notifications, and do not display\n"
+                           . "               incoming typing notifications."
+        });
 }
 
 sub on_connection_changed {
@@ -447,6 +463,12 @@ sub on_im_in {
     );
     $props{sender_alias} = $buddy_info->{alias} if $buddy_info->{alias};
     BarnOwl::queue_message(BarnOwl::Message->new(%props));
+
+    # XXX TODO: Figure out whether or not we're actually supposed to do this;
+    # > TYPINGSTATUS_FINISHED: The user has finished typing to the recipient.
+    # > This should be sent when the user starts to compose a message, but then
+    # > erases all of the text in the message input area.
+    on_typing_status($oscar, $sender, TYPINGSTATUS_FINISHED);
 
     return if $is_away; # prevent infinite auto-away loops
 
@@ -595,7 +617,7 @@ sub cmd_aimlogin {
                                     BarnOwl::Module::AIM::cmd_aimlogin($cmd, $user, @_);
                                 });
     } else {
-        my $oscar = Net::OSCAR->new(capabilities => [qw(extended_status)]);
+        my $oscar = Net::OSCAR->new(capabilities => [qw(extended_status typing_status)]);
         $oscar->set_callback_im_in(
             sub { BarnOwl::Module::AIM::on_im_in(@_) });
         $oscar->set_callback_connection_changed(
@@ -620,6 +642,9 @@ sub cmd_aimlogin {
             sub { BarnOwl::Module::AIM::on_chat_invite(@_) });
         $oscar->set_callback_chat_closed(
             sub { BarnOwl::Module::AIM::on_chat_closed(@_) });
+
+        $oscar->set_callback_typing_status(
+            sub {  BarnOwl::Module::AIM::on_typing_status(@_) });
 
         my $enable_login_notifications = sub {
             my $timer = shift;
@@ -759,11 +784,26 @@ sub cmd_aimwrite {
 
     return process_aimwrite($oscar, $body, $recipient) if defined $body;
     BarnOwl::message('Type your message below.  End with a dot on a line by itself.  ^C will quit.');
-    BarnOwl::start_edit_win($full_cmd,
-                            sub { $body = shift;
-                                  BarnOwl::message(''); # kludge to clear the 'Type your message...'
-                                  process_aimwrite($oscar, $body, $recipient);
-                            });
+
+    $oscar->send_typing_status($recipient, TYPINGSTATUS_STARTED);
+    my $idle_watcher;
+    if (BarnOwl::getvar('aim:typing_notifications') ne 'off') {
+        $idle_watcher = BarnOwl::register_idle_watcher(name => "AIM Typing Status Idle Watcher", after => PAUSED_DELAY,
+                                                       callback => sub {
+                                                           my ($is_idle) = @_;
+                                                           $oscar->send_typing_status($recipient, $is_idle ? TYPINGSTATUS_TYPING : TYPINGSTATUS_STARTED);
+                                                       });
+    }
+    BarnOwl::start_edit(type => 'edit_win', prompt => $full_cmd, callback => sub {
+            $body = shift;
+            my $success = shift;
+            BarnOwl::unregister_idle_watcher($idle_watcher);
+            $oscar->send_typing_status($recipient, TYPINGSTATUS_FINISHED);
+            if ($success) {
+                BarnOwl::message(''); # kludge to clear the 'Type your message...'
+                process_aimwrite($oscar, $body, $recipient);
+            }
+        });
 }
 
 sub process_aimwrite($$$) {
@@ -782,6 +822,58 @@ sub process_aimwrite($$$) {
     );
     $props{recipient_alias} = $buddy_info->{alias} if $buddy_info->{alias};
     BarnOwl::queue_message(BarnOwl::Message->new(%props));
+}
+
+sub on_typing_status {
+    my ($oscar, $screenname, $status) = @_;
+    return if BarnOwl::getvar('aim:typing_notifications') eq 'off';
+    my $buddy_info = $oscar->buddy($screenname);
+
+    if (BarnOwl::getvar('aim:typing_notifications') eq 'messagelist') { # queue up a meta message for this notification
+        my $opcode; # for matching with jabber XEP-0085
+        if ($status == TYPINGSTATUS_STARTED) { # "The user has started typing to the recipient. This indicates that typing is actively taking place."
+            $opcode = 'composing';
+        } elsif ($status == TYPINGSTATUS_TYPING) { # Confusing name. "The user is typing to the recipient. This indicates that there is text in the message input area, but typing is not actively taking place at the moment."
+            $opcode = 'paused';
+        } elsif ($status == TYPINGSTATUS_FINISHED) { # The user has finished typing to the recipient. This should be sent when the user starts to compose a message, but then erases all of the text in the message input area.
+            $opcode = 'active';
+        }
+
+        my %props = (
+            type           => 'meta',
+            direction      => 'in',
+            opcode         => $opcode,
+            body           => '',
+            recipient      => $oscar->screenname,
+            sender         => $screenname
+        );
+        $props{sender_alias} = $buddy_info->{alias} if $buddy_info->{alias};
+        my $message = get_typing_status_message($oscar, $screenname);
+        $message->delete_and_expunge() if defined $message;
+        if ($status != TYPINGSTATUS_FINISHED) {
+            $message = BarnOwl::queue_message(BarnOwl::Message->new(%props));
+            set_typing_status_message($oscar, $screenname, TYPINGSTATUS_FINISHED);
+        }
+    } else { # display a one-liner below the sepbar
+        my $message;
+        if ($buddy_info->{alias}) {
+            $message = $buddy_info->{alias} . " ($screenname)";
+        } else {
+            $message = $screenname;
+        }
+
+        # Copy gchat's notifications
+        if ($status == TYPINGSTATUS_FINISHED) {
+            # Clear the last chat state.  We should figure out a better way to do this,
+            # so that we don't e.g., clear error messages
+            $message = '';
+        } elsif ($status == TYPINGSTATUS_STARTED) {
+            $message .= " is typing...";
+        } elsif ($status == TYPINGSTATUS_TYPING) {
+            $message .= " has entered text.";
+        }
+        BarnOwl::message($message);
+    }
 }
 
 sub on_get_quick_start {
@@ -1333,6 +1425,22 @@ sub get_confirmed_password {
                                                             }
                                                         });
                                 });
+}
+
+sub set_typing_status_message($$$) {
+    my ($oscar, $from, $message) = @_;
+    $from = Net::OSCAR::Screenname->new($from);
+    if (!defined $vars{typing_status_messages}->{$oscar->screenname}) {
+        $vars{typing_status_messages}->{$oscar->screenname} = Net::OSCAR::Utility::bltie();
+    }
+    $vars{typing_status_messages}->{$oscar->screenname}->{$from} = $message;
+}
+
+sub get_typing_status_message($$) {
+    my ($oscar, $from, $message) = @_;
+    $from = Net::OSCAR::Screenname->new($from);
+    return unless defined $vars{typing_status_messages}->{$oscar->screenname};
+    return $vars{typing_status_messages}->{$oscar->screenname}->{$from};
 }
 
 sub add_chat($$) {

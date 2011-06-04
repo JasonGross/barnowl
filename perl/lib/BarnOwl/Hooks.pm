@@ -71,7 +71,7 @@ with zephyr formatting parsed. The format should be
 
 use Exporter;
 
-our @EXPORT_OK = qw($startup $shutdown
+our @EXPORT_OK = qw($startup $shutdown preCursesInit postCursesInit
                     $receiveMessage $newMessage
                     $mainLoop $getBuddyList
                     $getQuickstart);
@@ -82,6 +82,8 @@ use BarnOwl::MainLoopCompatHook;
 
 our $startup = BarnOwl::Hook->new;
 our $shutdown = BarnOwl::Hook->new;
+our $preCursesInit = BarnOwl::Hook->new;
+our $postCursesInit = BarnOwl::Hook->new;
 our $receiveMessage = BarnOwl::Hook->new;
 our $newMessage = BarnOwl::Hook->new;
 our $mainLoop = BarnOwl::MainLoopCompatHook->new;
@@ -172,6 +174,14 @@ sub _shutdown {
     $shutdown->run;
     
     BarnOwl::shutdown() if *BarnOwl::shutdown{CODE};
+}
+
+sub _pre_curses_init {
+    $preCursesInit->run;
+}
+
+sub _post_curses_init {
+    $postCursesInit->run;
 }
 
 sub _receive_msg {

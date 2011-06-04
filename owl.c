@@ -498,10 +498,8 @@ int main(int argc, char **argv, char **env)
   owl_parse_options(argc, argv, &opts);
   g.load_initial_subs = opts.load_initial_subs;
 
-  owl_start_curses();
-
   /* owl global init */
-  owl_global_init(&g);
+  owl_global_pre_curses_init(&g);
   if (opts.debug) owl_global_set_debug_on(&g);
   if (opts.confdir) owl_global_set_confdir(&g, opts.confdir);
   owl_function_debugmsg("startup: first available debugging message");
@@ -510,6 +508,28 @@ int main(int argc, char **argv, char **env)
   owl_global_set_haveaim(&g);
 
   owl_register_signal_handlers();
+
+  /* Initialize perl */
+  owl_function_debugmsg("startup: processing config file");
+
+  owl_global_pop_context(&g);
+  owl_global_push_context(&g, OWL_CTX_READCONFIG, NULL, NULL, NULL);
+
+  perlerr = owl_perlconfig_initperl(opts.configfile, &argc, &argv, &env);
+  if (perlerr) {
+    fprintf(stderr, "Internal perl error: %s\n", perlerr);
+    fflush(stderr);
+    printf("Internal perl error: %s\n", perlerr);
+    fflush(stdout);
+    exit(1);
+  }
+
+  /* execute the perl hook for pre-curses initilization */
+  owl_function_debugmsg("startup: executing perl pre-curses init, if applicable");
+  perlout = owl_perlconfig_execute("BarnOwl::Hooks::_pre_curses_init();");
+  g_free(perlout);
+
+  owl_start_curses();
 
   /* register STDIN dispatch; throw away return, we won't need it */
   owl_select_add_io_dispatch(STDIN_FILENO, OWL_IO_READ, &owl_process_input, NULL, NULL);
@@ -520,6 +540,13 @@ int main(int argc, char **argv, char **env)
   owl_function_debugmsg("startup: doing stderr redirection");
   owl_select_add_io_dispatch(stderr_replace(), OWL_IO_READ, &stderr_redirect_handler, NULL, NULL);
 #endif
+
+  owl_global_post_curses_init(&g);
+
+  /* execute the post-curses init hook */
+  owl_function_debugmsg("startup: executing perl post-curses init, if applicable");
+  perlout = owl_perlconfig_execute("BarnOwl::Hooks::_post_curses_init();");
+  g_free(perlout);
 
   /* create the owl directory, in case it does not exist */
   owl_function_debugmsg("startup: creating owl directory, if not present");
@@ -534,22 +561,6 @@ int main(int argc, char **argv, char **env)
     char *tty = owl_util_get_default_tty();
     owl_global_set_tty(&g, tty);
     g_free(tty);
-  }
-
-  /* Initialize perl */
-  owl_function_debugmsg("startup: processing config file");
-
-  owl_global_pop_context(&g);
-  owl_global_push_context(&g, OWL_CTX_READCONFIG, NULL, NULL, NULL);
-
-  perlerr=owl_perlconfig_initperl(opts.configfile, &argc, &argv, &env);
-  if (perlerr) {
-    endwin();
-    fprintf(stderr, "Internal perl error: %s\n", perlerr);
-    fflush(stderr);
-    printf("Internal perl error: %s\n", perlerr);
-    fflush(stdout);
-    exit(1);
   }
 
   owl_global_complete_setup(&g);

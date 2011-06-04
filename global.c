@@ -10,7 +10,7 @@
 
 static void _owl_global_init_windows(owl_global *g);
 
-void owl_global_init(owl_global *g) {
+void owl_global_pre_curses_init(owl_global *g) {
   char *cd;
   const char *homedir;
 
@@ -18,12 +18,6 @@ void owl_global_init(owl_global *g) {
   g_thread_init(NULL);
 
   owl_select_init();
-
-  g->lines=LINES;
-  g->cols=COLS;
-  /* We shouldn't need this if we initialize lines and cols before the first
-   * owl_window_get_screen, but to be safe, we synchronize. */
-  owl_window_resize(owl_window_get_screen(), g->lines, g->cols);
 
   g->context_stack = NULL;
   owl_global_push_context(g, OWL_CTX_STARTUP, NULL, NULL, NULL);
@@ -53,7 +47,6 @@ void owl_global_init(owl_global *g) {
   g->resizepending=0;
   g->direction=OWL_DIRECTION_DOWNWARDS;
   g->zaway=0;
-  owl_fmtext_init_colorpair_mgr(&(g->cpmgr));
   g->debug=OWL_DEBUG;
   owl_regex_init(&g->search_re);
   g->starttime=time(NULL); /* assumes we call init only a start time */
@@ -84,8 +77,6 @@ void owl_global_init(owl_global *g) {
 
   owl_messagelist_create(&(g->msglist));
 
-  _owl_global_init_windows(g);
-
   g->aim_screenname=NULL;
   g->aim_screenname_for_filters=NULL;
   g->aim_loggedin=0;
@@ -110,6 +101,18 @@ void owl_global_init(owl_global *g) {
 
   g->interrupt_count = 0;
   g->interrupt_lock = g_mutex_new();
+}
+
+void owl_global_post_curses_init(owl_global *g) {
+  g->lines = LINES;
+  g->cols = COLS;
+  /* We shouldn't need this if we initialize lines and cols before the first
+   * owl_window_get_screen, but to be safe, we synchronize. */
+  owl_window_resize(owl_window_get_screen(), g->lines, g->cols);
+
+  owl_fmtext_init_colorpair_mgr(&g->cpmgr);
+
+  _owl_global_init_windows(g);
 }
 
 static void _owl_global_init_windows(owl_global *g)

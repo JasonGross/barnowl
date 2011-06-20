@@ -502,6 +502,79 @@ void owl_perlconfig_new_command(const char *name)
   LEAVE;
 }
 
+#define OWL_PERLCONFIG_PERL_CALL(method, argc, argv, ret) { \
+  int i, count; \
+  dSP; \
+  \
+  ENTER; \
+  SAVETMPS; \
+  \
+  PUSHMARK(SP); \
+  for (i = 0; i < argc; i++) { \
+    XPUSHs(sv_2mortal(owl_new_sv(argv[i]))); \
+  } \
+  PUTBACK; \
+  \
+  count = call_pv(method, G_SCALAR|G_EVAL); \
+  \
+  SPAGAIN; \
+  \
+  if (SvTRUE(ERRSV)) { \
+    owl_function_error("Perl Error: %s", SvPV_nolen(ERRSV)); \
+    (void)POPs; \
+  } else if (count != 1) { \
+    croak("Perl sub %s returned more than one value!", method); \
+  } else { \
+    ret; \
+  } \
+  \
+  FREETMPS; \
+  LEAVE; \
+}
+
+CALLER_OWN char *owl_perlconfig_perl_call(const char *method, int argc, const char *const *argv)
+{
+  char *ret = NULL;
+  SV *rv;
+  OWL_PERLCONFIG_PERL_CALL(method, argc, argv,
+                           rv = POPs;
+                           if (SvPOK(rv))
+                             ret = g_strdup(SvPV_nolen(rv));
+                           );
+  return ret;
+}
+
+int owl_perlconfig_perl_call_int(const char *method, int argc, const char *const *argv)
+{
+  int ret = -1;
+  SV *rv;
+  OWL_PERLCONFIG_PERL_CALL(method, argc, argv,
+                           rv = POPs;
+                           if (SvIOK(rv))
+                             ret = SvIV(rv);
+                           );
+  return ret;
+}
+
+bool owl_perlconfig_perl_call_bool(const char *method, int argc, const char *const *argv)
+{
+  bool ret = false;
+  SV *rv;
+  OWL_PERLCONFIG_PERL_CALL(method, argc, argv,
+                           rv = POPs;
+                           if (SvIOK(rv) || SvNOK(rv) || SvPOK(rv)) /* XXX why do we need this? */
+                             ret = SvTRUE(rv);
+                           );
+  return ret;
+}
+
+void owl_perlconfig_perl_call_norv(const char *method, int argc, const char *const *argv)
+{
+  OWL_PERLCONFIG_PERL_CALL(method, argc, argv,
+                           ;
+                           );
+}
+
 /* caller must free the result */
 CALLER_OWN char *owl_perlconfig_perlcmd(const owl_cmd *cmd, int argc, const char *const *argv)
 {

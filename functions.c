@@ -344,13 +344,15 @@ void owl_function_aimwrite_setup(const char *to)
 
 void owl_function_loopwrite_setup(void)
 {
-  owl_editin *e;
+  owl_editwin *e;
   owl_function_write_setup("message");
   e = owl_function_start_edit_win("loopwrite");
   owl_editwin_set_callback(e, &owl_callback_loopwrite);
 }
 
-void owl_callback_zwrite(owl_editwin *e) {
+void owl_callback_zwrite(owl_editwin *e, bool success)
+{
+  if (!success) return;
   owl_zwrite *z = owl_editwin_get_cbdata(e);
   owl_function_zwrite(z, owl_editwin_get_text(e));
 }
@@ -445,7 +447,9 @@ void owl_function_zcrypt(owl_zwrite *z, const char *msg)
   g_free(cryptmsg);
 }
 
-void owl_callback_aimwrite(owl_editwin *e) {
+void owl_callback_aimwrite(owl_editwin *e, bool success)
+{
+  if (!success) return;
   char *to = owl_editwin_get_cbdata(e);
   owl_function_aimwrite(to, owl_editwin_get_text(e), true);
 }
@@ -509,7 +513,9 @@ void owl_function_send_aimawymsg(const char *to, const char *msg)
   g_free(format_msg);
 }
 
-void owl_callback_loopwrite(owl_editwin *e) {
+void owl_callback_loopwrite(owl_editwin *e, bool success)
+{
+  if (!success) return;
   owl_function_loopwrite(owl_editwin_get_text(e));
 }
 
@@ -925,7 +931,9 @@ void owl_function_loadloginsubs(const char *file)
   }
 }
 
-void owl_callback_aimlogin(owl_editwin *e) {
+void owl_callback_aimlogin(owl_editwin *e, bool success)
+{
+  if (!success) return;
   char *user = owl_editwin_get_cbdata(e);
   owl_function_aimlogin(user,
                         owl_editwin_get_text(e));
@@ -1932,8 +1940,9 @@ void owl_function_zlocate(int argc, const char *const *argv, int auth)
   owl_fmtext_cleanup(&fm);
 }
 
-void owl_callback_command(owl_editwin *e)
+void owl_callback_command(owl_editwin *e, bool success)
 {
+  if (!success) return;
   char *rv;
   const char *line = owl_editwin_get_text(e);
 

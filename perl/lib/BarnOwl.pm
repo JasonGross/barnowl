@@ -8,7 +8,7 @@ our @EXPORT_OK = qw(command getcurmsg getnumcols getidletime
                     zephyr_getsender zephyr_getrealm zephyr_zwrite
                     zephyr_stylestrip zephyr_smartstrip_user zephyr_getsubs
                     queue_message admin_message
-                    start_question start_password start_edit_win
+                    start_edit start_question start_password start_edit_win
                     get_data_dir get_config_dir popless_text popless_ztext
                     error debug
                     create_style getnumcolors wordwrap
@@ -42,6 +42,7 @@ use BarnOwl::Completion;
 use BarnOwl::Help;
 
 use List::Util qw(max);
+use Carp;
 
 =head1 NAME
 
@@ -110,22 +111,104 @@ BarnOwl::Message or a subclass.
 
 Display a BarnOwl B<Admin> message, with the given header and body.
 
-=head2 start_question PROMPT CALLBACK
+=head2 start_edit [%ARGS]
 
-Displays C<PROMPT> on the screen and lets the user enter a line of
-text, and calls C<CALLBACK>, which must be a perl subroutine
-reference, with the text the user entered
+Displays a prompt on the screen and lets the user enter a line of
+text, and calls a callback, which must be a perl subroutine
+reference, with the text the user entered, and a second boolean
+parameter which is false if the user canceled the edit_win and true
+otherwise.
 
-=head2 start_password PROMPT CALLBACK
+ARGS must contain the following keys:
 
-Like C<start_question>, but echoes the user's input as C<*>s when they
+=over 4
+
+=item prompt
+
+The line to display on the screen
+
+=item type
+
+One of:
+
+=over 4
+
+=item edit_win
+
+Displays the prompt on a line of its own and opens the edit_win.
+
+=item question
+
+Displays prompt on the screen and lets the user enter a line of
+text.
+
+=item password
+
+Like question, but echoes the user's input as C<*>s when they
 input.
 
-=head2 start_edit_win PROMPT CALLBACK
+=back
 
-Like C<start_question>, but displays C<PROMPT> on a line of its own
-and opens the editwin. If the user cancels the edit win, C<CALLBACK>
-is not invoked.
+=item callback
+
+A perl subroutine that is called when the user closes the edit_win.
+
+=back
+
+ARGS may contain any of the following optional arguments:
+
+=over 4
+
+=item cancel_callback
+
+A perl subroutine that is called instead of callback on cancel.
+
+=item call_on_cancel
+
+Call a callback on canceling the edit_win.  By default, this is
+true only if C<cancel_callback> is given.
+
+=back
+
+=head2 start_question PROMPT CALLBACK [CALL-ON-CANCEL]
+
+=head2 start_password PROMPT CALLBACK [CALL-ON-CANCEL]
+
+=head2 start_edit_win PROMPT CALLBACK [CALL-ON-CANCEL]
+
+Equivalent to C<start_edit> called with the appropriate parameters.
+
+=cut
+
+sub start_edit {
+    my %args = (@_);
+    my $prompt = $args{prompt};
+    my $type = $args{type};
+    my $callback = $args{callback};
+    my $cancel_callback = $args{cancel_callback};
+    my $call_on_cancel = $args{call_on_cancel};
+    if ($cancel_callback) {
+        $call_on_cancel = $call_on_cancel // 1; # don't override an explicit user setting
+        my $success_callback = $callback;
+        $callback = sub {
+            my ($text, $success) = @_;
+            if ($success) {
+                $success_callback->(@_);
+            } else {
+                $cancel_callback->(@_);
+            }
+        };
+    }
+    if ($type eq 'password') {
+        BarnOwl::start_password($prompt, $callback, $call_on_cancel);
+    } elsif ($type eq 'question') {
+        BarnOwl::start_question($prompt, $callback, $call_on_cancel);
+    } elsif ($type eq 'edit_win') {
+        BarnOwl::start_edit_win($prompt, $callback, $call_on_cancel);
+    } else {
+        croak "Invalid edit type `$type'.";
+    }
+}
 
 =head2 get_data_dir
 

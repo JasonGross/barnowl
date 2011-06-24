@@ -2781,7 +2781,15 @@ void owl_command_edit_cancel(owl_editwin *e)
     owl_history_reset(hist);
   }
 
+  /* Take a reference to the editwin, so that it survives the pop
+   * context. TODO: We should perhaps refcount or otherwise protect
+   * the context so that, even if a command pops a context, the
+   * context itself will last until the command returns. */
+  owl_editwin_ref(e);
   owl_global_pop_context(&g);
+
+  owl_editwin_do_callback(e, false);
+  owl_editwin_unref(e);
 }
 
 void owl_command_edit_history_prev(owl_editwin *e)
@@ -2845,7 +2853,7 @@ void owl_command_edit_done(owl_editwin *e)
   owl_editwin_ref(e);
   owl_global_pop_context(&g);
 
-  owl_editwin_do_callback(e);
+  owl_editwin_do_callback(e, true);
   owl_editwin_unref(e);
 }
 

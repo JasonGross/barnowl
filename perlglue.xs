@@ -172,9 +172,10 @@ admin_message(header, body)
 	}
 
 void
-start_question(line, callback)
+start_question(line, callback, call_on_cancel = false)
 	const char *line
 	SV *callback
+        bool call_on_cancel
 	PREINIT:
 		owl_editwin *e;
 	CODE:
@@ -188,12 +189,14 @@ start_question(line, callback)
 				       newSVsv(callback),
 				       owl_perlconfig_dec_refcnt);
 		owl_editwin_set_callback(e, owl_perlconfig_edit_callback);
+                owl_editwin_set_ignore_cancel(e, !call_on_cancel);
 	}
 
 void
-start_password(line, callback)
+start_password(line, callback, call_on_cancel = false)
 	const char *line
 	SV *callback
+        bool call_on_cancel
 	PREINIT:
 		owl_editwin *e;
 	CODE:
@@ -207,12 +210,14 @@ start_password(line, callback)
 				       newSVsv(callback),
 				       owl_perlconfig_dec_refcnt);
 		owl_editwin_set_callback(e, owl_perlconfig_edit_callback);
+                owl_editwin_set_ignore_cancel(e, !call_on_cancel);
 	}
 
 void
-start_edit_win(line, callback)
+start_edit_win(line, callback, call_on_cancel = false)
 	const char *line
 	SV *callback
+        bool call_on_cancel
 	PREINIT:
 		owl_editwin *e;
 	CODE:
@@ -225,6 +230,7 @@ start_edit_win(line, callback)
 				       newSVsv(callback),
 				       owl_perlconfig_dec_refcnt);
 		owl_editwin_set_callback(e, &owl_perlconfig_edit_callback);
+                owl_editwin_set_ignore_cancel(e, !call_on_cancel);
 	}
 
 

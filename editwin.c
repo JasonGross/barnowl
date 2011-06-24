@@ -36,7 +36,8 @@ struct _owl_editwin { /*noproto*/
   int echochar;
   oe_excursion *excursions;
 
-  void (*callback)(struct _owl_editwin*);
+  bool ignore_cancel;
+  void (*callback)(struct _owl_editwin *e, bool success);
   void (*destroy_cbdata)(void *);
   void *cbdata;
 };
@@ -223,12 +224,22 @@ void owl_editwin_set_dotsend(owl_editwin *e)
   e->dotsend=1;
 }
 
-void owl_editwin_set_callback(owl_editwin *e, void (*cb)(owl_editwin*))
+void owl_editwin_set_ignore_cancel(owl_editwin *e, bool ignore_cancel)
+{
+  e->ignore_cancel = ignore_cancel;
+}
+
+bool owl_editwin_get_ignore_cancel(owl_editwin *e)
+{
+  return e->ignore_cancel;
+}
+
+void owl_editwin_set_callback(owl_editwin *e, void (*cb)(owl_editwin *, bool))
 {
   e->callback = cb;
 }
 
-void (*owl_editwin_get_callback(owl_editwin *e))(owl_editwin*)
+void (*owl_editwin_get_callback(owl_editwin *e))(owl_editwin *, bool)
 {
   return e->callback;
 }
@@ -251,14 +262,16 @@ void *owl_editwin_get_cbdata(owl_editwin *e) {
   return e->cbdata;
 }
 
-void owl_editwin_do_callback(owl_editwin *e) {
-  void (*cb)(owl_editwin*);
-  cb=owl_editwin_get_callback(e);
-  if(!cb) {
+void owl_editwin_do_callback(owl_editwin *e, bool success)
+{
+  if (!success && owl_editwin_get_ignore_cancel(e))
+    return;
+  void (*cb)(owl_editwin *, bool);
+  cb = owl_editwin_get_callback(e);
+  if (!cb) {
     owl_function_error("Internal error: No editwin callback!");
   } else {
-    /* owl_function_error("text: |%s|", owl_editwin_get_text(e)); */
-    cb(e);
+    cb(e, success);
   }
 }
 

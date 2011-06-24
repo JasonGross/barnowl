@@ -547,7 +547,7 @@ void owl_perlconfig_cmd_cleanup(owl_cmd *cmd)
   SvREFCNT_dec(cmd->cmd_perl);
 }
 
-void owl_perlconfig_edit_callback(owl_editwin *e)
+void owl_perlconfig_edit_callback(owl_editwin *e, bool success)
 {
   SV *cb = owl_editwin_get_cbdata(e);
   SV *text;
@@ -564,6 +564,7 @@ void owl_perlconfig_edit_callback(owl_editwin *e)
 
   PUSHMARK(SP);
   XPUSHs(sv_2mortal(text));
+  XPUSHs(sv_2mortal(newSViv(success)));
   PUTBACK;
   
   call_sv(cb, G_DISCARD|G_EVAL);

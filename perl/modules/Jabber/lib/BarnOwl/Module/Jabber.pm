@@ -492,6 +492,12 @@ sub do_login {
         );
     $acc->connect;
 
+    # XXX TODO: When we have a hook for changing a variable, also do
+    # this when jabber:chat_state_notifications changes to or from
+    # 'off'.
+    $acc->{ext}->{disco}->enable_feature('http://jabber.org/protocol/chatstates');
+    $acc->{ext}->{disco}->enable_feature('jabber:iq:roster');
+
     ensure_auto_idle_timer();
 
     return;
@@ -625,10 +631,14 @@ sub cmd_jwrite {
     push @cmd, '-t', $jwrite_thread if defined($jwrite_thread);
     push @cmd, '-s', $jwrite_subject if defined($jwrite_subject);
 
-    send_chat_state_notification('composing', $jwrite_data);
-    my $last_chat_state = 'composing';
+    my $last_chat_state;
+    if (get_chat_state_notification_support($jwrite_to, $acc)) {
+        send_chat_state_notification('composing', $jwrite_data);
+        $last_chat_state = 'composing';
+    }
     $auto_chat_state_notification = sub {
         my $chat_state = shift || 'composing';
+        return unless get_chat_state_notification_support($jwrite_to, $acc);
         if ($chat_state ne $last_chat_state) {
             send_chat_state_notification($chat_state, $jwrite_data);
         }
@@ -642,7 +652,7 @@ sub cmd_jwrite {
                             undef $auto_chat_state_notification;
                             if ($success) {
                                 process_owl_jwrite($jwrite_data, $text);
-                            } else {
+                            } elsif (get_chat_state_notification_support($jwrite_to, $acc)) {
                                 send_chat_state_notification('active', $jwrite_data);
                             }
                         });
@@ -1046,13 +1056,13 @@ sub send_chat_state_notification {
     my $fields = shift;
     return if BarnOwl::getvar('jabber:chat_state_notifications') eq 'off';
     return unless $fields->{type} eq 'chat' || $fields->{type} eq 'groupchat';
-    my $toJID = bare_jid($fields->{to});
-    return unless $feature_support{$toJID}{chat_state_notifications};
 
     my $acc = $accounts->get_account($fields->{from});
     unless (defined($acc) && $acc->is_session_ready) {
         die $acc->jid . " is not connected.\n";
     }
+
+    return unless get_chat_state_notification_support($fields->{to}, $acc);
 
     my $msg = new AnyEvent::XMPP::IM::Message(
         to   => $fields->{to},
@@ -1714,6 +1724,23 @@ sub get_message_chat_states {
         }
     }
     return @rtn;
+}
+
+use Data::Dumper;
+sub get_chat_state_notification_support {
+    my ($who, $acc) = @_;
+    $who = bare_jid($who);
+    # XXX TODO: Figure out if (when) we ever want to invalidate the cache.
+    return $feature_support{$who}{chat_state_notifications} if defined $feature_support{$who}{chat_state_notifications};
+    $acc->{ext}->{disco}->request_info($acc->connection, $who, undef, sub {
+            my ($disco, $info, $error) = @_;
+            die $error->string . "\n" if $error;
+            BarnOwl::admin_message('jabber', Dumper([keys %{$info->features}]));
+            # XXX FIX
+            $feature_support{$who}{chat_state_notifications} ||= grep { 'http://jabber.org/protocol/chatstates' eq $_ } keys %{$info->features};
+            do_auto_chat_state_notifications(BarnOwl::getidletime()) if $feature_support{$who}{chat_state_notifications};
+        });
+    return 0;
 }
 
 ################################################################################

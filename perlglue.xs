@@ -396,6 +396,19 @@ have_zephyr()
 MODULE = BarnOwl		PACKAGE = BarnOwl::Internal
 
 
+const utf8 *
+makepath(in)
+	const char * in
+	PREINIT:
+		char *rv;
+	CODE:
+		rv = owl_util_makepath(in);
+		RETVAL = rv;
+	OUTPUT:
+		RETVAL
+	CLEANUP:
+		g_free(rv);
+
 void
 new_command(name, func, summary, usage, description)
 	char *name

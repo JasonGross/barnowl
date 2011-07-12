@@ -171,6 +171,10 @@ sub jwrite_cmd {
     }
 }
 
+sub log_filenames {
+    return map { Unicode::Normalize::NFCK($_) } BarnOwl::Message::log_filenames(@_);
+}
+
 =head1 SEE ALSO
 
 L<BarnOwl::Message>

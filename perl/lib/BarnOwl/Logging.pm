@@ -78,6 +78,13 @@ sub _register_variables {
                          . "login or logout notifications."
         });
 
+    BarnOwl::new_variable_bool('logadmin',
+        {
+            default     => 0,
+            summary     => 'enable logging of admin messages',
+            description => "When this is enabled, BarnOwl will log administration messages."
+        });
+
     BarnOwl::new_variable_enum('loggingdirection',
         {
             default       => 'both',

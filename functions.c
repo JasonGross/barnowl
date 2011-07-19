@@ -202,6 +202,9 @@ void owl_function_adminmsg(const char *header, const char *body)
   owl_messagelist_append_element(owl_global_get_msglist(&g), m);
   owl_view_consider_message(owl_global_get_current_view(&g), m);
 
+  /* let perl know about it so we can log it, if necessary */
+  owl_perlconfig_newmsg(m, NULL);
+
   /* do followlast if necessary */
   if (owl_global_should_followlast(&g)) owl_function_lastmsg();
 

@@ -293,8 +293,13 @@ static GSourceFuncs owl_process_messages_funcs = {
 void owl_process_input_char(owl_input j)
 {
   int ret;
+  char keybuff[7];
+  const char *keybuffv[1];
 
   owl_global_set_lastinputtime(&g, time(NULL));
+  keybuff[g_unichar_to_utf8(j.uch, keybuff)] = '\0';
+  keybuffv[0] = keybuff;
+  owl_perlconfig_perl_call_norv("BarnOwl::Hooks::_keypress", 1, keybuffv);
   ret = owl_keyhandler_process(owl_global_get_keyhandler(&g), j);
   if (ret!=0 && ret!=1) {
     owl_function_makemsg("Unable to handle keypress");

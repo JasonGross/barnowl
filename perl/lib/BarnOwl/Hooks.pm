@@ -35,6 +35,11 @@ argument if this is a reload, and false if this is a true startup
 
 Called before BarnOwl shutdown
 
+=item $keypress
+
+Called whenever the user presses a valid key.  Functions registered
+with the C<$keypress> hook get passed the key that was pressed.
+
 =item $receiveMessage
 
 Called with a C<BarnOwl::Message> object every time BarnOwl receives a
@@ -72,6 +77,7 @@ with zephyr formatting parsed. The format should be
 use Exporter;
 
 our @EXPORT_OK = qw($startup $shutdown
+                    $keypress
                     $receiveMessage $newMessage
                     $mainLoop $getBuddyList
                     $getQuickstart);
@@ -82,6 +88,7 @@ use BarnOwl::MainLoopCompatHook;
 
 our $startup = BarnOwl::Hook->new;
 our $shutdown = BarnOwl::Hook->new;
+our $keypress = BarnOwl::Hook->new;
 our $receiveMessage = BarnOwl::Hook->new;
 our $newMessage = BarnOwl::Hook->new;
 our $mainLoop = BarnOwl::MainLoopCompatHook->new;
@@ -172,6 +179,11 @@ sub _shutdown {
     $shutdown->run;
     
     BarnOwl::shutdown() if *BarnOwl::shutdown{CODE};
+}
+
+sub _keypress {
+    my ($key) = @_;
+    $keypress->run($key);
 }
 
 sub _receive_msg {

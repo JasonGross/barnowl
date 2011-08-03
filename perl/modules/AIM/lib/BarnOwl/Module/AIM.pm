@@ -1596,7 +1596,7 @@ sub format_duration($) {
 ################################################################################
 ### Completion
 
-BarnOwl::Complete::AIM::register_completer($vars{oscars});
+BarnOwl::Complete::AIM::register_completers($vars{oscars});
 
 1;
 

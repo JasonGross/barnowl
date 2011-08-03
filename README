@@ -11,6 +11,7 @@ following CPAN modules:
 
 Facebook::Graph
 Net::Jabber
+Net::OSCAR
 Net::XMPP
 XML::Stream
 
@@ -26,6 +27,10 @@ PAR
 (Note that these are all available as Debian packages)
 We plan to soon add targets to the Makefile to check for and install
 these for you.
+
+The AIM module requires:
+
+List::MoreUtils
 
 The Facebook module requires:
 

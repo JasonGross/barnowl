@@ -24,15 +24,19 @@ sub replysendercmd {
 }
 
 sub login_extra {
-    return shift->{sender_alias};
+    my $alias = shift->{sender_alias};
+    return (defined $alias ? $alias : '');
 }
 
 sub long_sender {
     my $m = shift;
+    my $alias;
     if ($m->{direction} eq 'out') { # this is a kludge to get the recipient alias to display on outgoing messages
-        return $m->{recipient_alias};
+        $alias = $m->{recipient_alias};
+    } else {
+        $alias = $m->{sender_alias};
     }
-    return $m->{sender_alias};
+    return (defined $alias ? $alias : '');
 }
 
 1;

@@ -4,10 +4,15 @@ AM_INIT_AUTOMAKE([1.7.0 -Wall -Wno-portability foreign])
 m4_ifdef([AM_SILENT_RULES],[AM_SILENT_RULES([yes])])
 
 AC_CONFIG_MACRO_DIR([m4])
-AC_CONFIG_HEADER([config.h])
+AC_CONFIG_SRCDIR([owl.c])
+AC_CONFIG_HEADERS([config.h])
 
+dnl Checks for programs.
 AC_PROG_CC
 AC_PROG_CC_C99
+AC_PROG_INSTALL
+AC_PROG_MAKE_SET
+AC_PROG_RANLIB
 
 AC_ARG_WITH([stack-protector],
   [AS_HELP_STRING([--with-stack-protector],
@@ -80,7 +85,13 @@ AC_CHECK_FUNCS([des_key_sched DES_key_sched], [HAVE_DES_KEY_SCHED=1])
 dnl Checks for header files.
 AC_HEADER_STDC
 AC_HEADER_SYS_WAIT
-AC_CHECK_HEADERS(stdbool.h strings.h sys/ioctl.h sys/filio.h unistd.h)
+AC_HEADER_STDBOOL
+AC_CHECK_HEADERS([arpa/inet.h fcntl.h locale.h netdb.h netinet/in.h stddef.h strings.h sys/filio.h sys/ioctl.h sys/param.h sys/socket.h sys/time.h termios.h unistd.h wchar.h])
+
+dnl Checks for typedefs, structures, and compiler characteristics.
+AC_C_INLINE
+AC_TYPE_PID_T
+AC_TYPE_SIZE_T
 
 dnl Add CFLAGS for embeded perl
 PERL_CFLAGS=`perl -MExtUtils::Embed -e ccopts`
@@ -166,6 +177,12 @@ fi
 AC_CONFIG_LIBOBJ_DIR([compat])
 AC_CHECK_DECLS([memrchr])
 AC_REPLACE_FUNCS([memrchr])
+
+dnl Checks for library functions.
+AC_FUNC_ERROR_AT_LINE
+AC_FUNC_FORK
+AC_FUNC_MKTIME
+AC_CHECK_FUNCS([dup2 getcwd gethostbyaddr gethostbyname gethostname inet_ntoa isascii memchr memmove memset mkdir regcomp select setlocale socket strcasecmp strchr strcspn strdup strerror strncasecmp strpbrk strrchr strstr strtol])
 
 AC_CONFIG_FILES([Makefile compat/Makefile libfaim/Makefile perl/Makefile perl/modules/Makefile])
 AC_OUTPUT

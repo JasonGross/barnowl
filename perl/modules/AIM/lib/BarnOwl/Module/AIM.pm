@@ -310,7 +310,7 @@ sub register_owl_variables {
             default => 0,
             summary => "Show AIM chatroom enter/leave messages"
         });
-    BarnOwl::new_variable_full("aaway", # XXX TODO: decide whether to deprecate this in favor of aim:away
+    BarnOwl::new_variable_full("aim:away",
         {
             default => 0,
             summary => "Set AIM away status",
@@ -322,26 +322,26 @@ sub register_owl_variables {
             validsettings => "on,off",
             takes_on_off => 1
         });
-    BarnOwl::new_variable_full("aaway_msg", # XXX TODO: decide whether to deprecate this in favor of aim:away_message
+    BarnOwl::new_variable_full("aim:away_msg",
         {
             default     => "",
             summary     => "AIM away message for responding when away",
-            description => "This variable gets set to the value of aaway_msg_default\n"
+            description => "This variable gets set to the value of aim:away_msg_default\n"
                          . "whenever you go aaway.  You may change it afterwards to\n"
                          . "specify a non-default away message.\n\n"
-                         . "SEE ALSO: aaway, aaway_msg_default",
+                         . "SEE ALSO: aaway, aim:away, aim:away_msg_default",
             get_tostring => sub { $vars{away_msg} },
             set_fromstring => sub { aaway($_[0] ne "", $_[0]); },
             validsettings => "<string>",
         });
-    BarnOwl::new_variable_string("aaway_msg_default", # XXX TODO: decide whether to deprecate this in favor of aim:away_message_default
+    BarnOwl::new_variable_string("aim:away_msg_default",
         {
             default     => "I'm sorry, but I am currently away from the terminal and am not able to receive your message.",
             summary     => "default AIM away message for responding when away",
             description => "This variable controls the initial setting of your away\n"
                          . "message when you go aaway.  If you want to change your\n"
-                         . "current away message, set aaway_msg.\n\n"
-                         . "SEE ALSO: aaway, aaway_msg"
+                         . "current away message, set aim:away_msg.\n\n"
+                         . "SEE ALSO: aaway, aim:away, aim:away_msg"
         });
     BarnOwl::new_variable_string("aim:default_buddy_group",
         {
@@ -350,7 +350,7 @@ sub register_owl_variables {
             description => "When you call 'addbuddy AIM buddy', this controls the\n"
                          . "group to which the buddy gets added."
         });
-    BarnOwl::new_variable_int("aim_ignorelogin_timer", # XXX TODO: decide whether to deprecate this in favor of aim:ignore_login_timer
+    BarnOwl::new_variable_int("aim:ignorelogin_timer",
         {
             default     => 15,
             summary     => "number of seconds after AIM login to ignore login messages",
@@ -634,7 +634,7 @@ sub cmd_aimlogin {
                                    'Logged in to AIM as ' . shift->screenname);
             BarnOwl::message($oscar->screenname . ' logged in');
         };
-        if (BarnOwl::getvar('aim_ignorelogin_timer') > 0) {
+        if (BarnOwl::getvar('aim:ignorelogin_timer') > 0) {
             $oscar->set_callback_buddy_in(
                 sub { BarnOwl::Module::AIM::register_buddy_inout_completion('in', @_) });
             $oscar->set_callback_buddy_out(
@@ -645,7 +645,7 @@ sub cmd_aimlogin {
                     BarnOwl::Timer->new({
                         name  => 'AIM Ignore Login Timer',
                         cb    => $enable_login_notifications,
-                        after => BarnOwl::getvar('aim_ignorelogin_timer')
+                        after => BarnOwl::getvar('aim:ignorelogin_timer')
                     })
             });
         } else {
@@ -694,8 +694,8 @@ sub cmd_aaway {
     if ($onoff eq 'off') {
         undef $message;
     } elsif ($onoff eq 'on') {
-        if (!defined $message) { # safer to do this here, and not at the beginning, because what if aaway_msg_default is 'on' or 'off' or 'toggle'
-            $message = BarnOwl::getvar('aaway_msg_default');
+        if (!defined $message) { # safer to do this here, and not at the beginning, because what if aim:away_msg_default is 'on' or 'off' or 'toggle'
+            $message = BarnOwl::getvar('aim:away_msg_default');
         }
     } else {
         $onoff = 'on';
@@ -711,8 +711,8 @@ sub cmd_aaway {
     }
 }
 
-# sets or unsets awayness.  Note that we default to aaway_msg and not
-# aaway_msg_default.
+# sets or unsets awayness.  Note that we default to aim:away_msg and not
+# aim:away_msg_default.
 sub aaway {
     $vars{is_away} = shift;
     if ($vars{is_away}) {
@@ -726,7 +726,7 @@ sub aaway {
 }
 
 sub on_away_on {
-    my $message = shift // BarnOwl::getvar('aaway_msg_default');
+    my $message = shift // BarnOwl::getvar('aim:away_msg_default');
     aaway(1, $message);
 }
 

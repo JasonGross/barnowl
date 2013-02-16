@@ -13,6 +13,7 @@ our @EXPORT_OK = qw(command getcurmsg getnumcols getnumlines getidletime
                     get_data_dir get_config_dir popless_text popless_ztext
                     error debug
                     create_style getnumcolors wordwrap
+                    message_matches_filter
                     add_dispatch remove_dispatch
                     add_io_dispatch remove_io_dispatch
                     new_command
@@ -238,6 +239,11 @@ Logs a debugging message to BarnOwl's debug log
 =head2 getnumcolors
 
 Returns the number of colors this BarnOwl is capable of displaying
+
+=head2 message_matches_filter MESSAGE FILTER_NAME
+
+Returns 1 if C<MESSAGE> matches the filter C<FILTER_NAME>, 0 otherwise.
+This method fails if C<FILTER_NAME> does not name a valid filter.
 
 =head2 add_dispatch FD CALLBACK
 

@@ -255,6 +255,31 @@ _remove_filter(filterName)
 		}
 	}
 
+bool
+message_matches_filter(message, filter_name)
+	SV * message
+	const char * filter_name
+	PREINIT:
+		owl_message *m;
+		const owl_filter *f;
+	CODE:
+	{
+		if (!SvROK(message) || SvTYPE(SvRV(message)) != SVt_PVHV) {
+			croak("Usage: BarnOwl::Internal::message_matches_filter($message)");
+		}
+
+		m = owl_perlconfig_hashref2message(message);
+		f = owl_global_get_filter(&g, filter_name);
+		if (!f) {
+			owl_function_error("%s filter is not defined", filter_name);
+		}
+		RETVAL = f && owl_filter_message_match(f, m);
+	}
+	OUTPUT:
+		RETVAL
+	CLEANUP:
+		owl_message_delete(m);
+
 const utf8 *
 wordwrap(in, cols)
 	const char *in

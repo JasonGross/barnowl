@@ -89,12 +89,12 @@ sub _register_variables {
         {
             default       => 'both',
             validsettings => [qw(in out both)],
-            summary       => "specifies which kind of messages should be logged",
+            summary       => "specifies which kind of personal messages should be logged",
             description   => "Can be one of 'both', 'in', or 'out'.  If 'in' is\n"
                            . "selected, only incoming messages are logged, if 'out'\n"
                            . "is selected only outgoing messages are logged.  If 'both'\n"
                            . "is selected both incoming and outgoing messages are\n"
-                           . "logged."
+                           . "logged.  Note that this only applies to personal messages."
         });
 
     BarnOwl::new_variable_string('logpath',
@@ -170,9 +170,11 @@ sub should_log_message {
     # otherwise we do things based on the logging variables
     # skip login/logout messages if appropriate
     return 0 if $m->is_loginout && BarnOwl::getvar('loglogins') eq 'off';
-    # check direction
-    return 0 if $m->is_outgoing && BarnOwl::getvar('loggingdirection') eq 'in';
-    return 0 if $m->is_incoming && BarnOwl::getvar('loggingdirection') eq 'out';
+    # check direction, but only if the message is personal
+    if ($m->is_personal) {
+        return 0 if $m->is_outgoing && BarnOwl::getvar('loggingdirection') eq 'in';
+        return 0 if $m->is_incoming && BarnOwl::getvar('loggingdirection') eq 'out';
+    }
     return $m->should_log;
 }
 

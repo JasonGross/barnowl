@@ -29,7 +29,9 @@ static void owl_log_write_entry(gpointer data)
   FILE *file = NULL;
   file = fopen(msg->filename, "a");
   if (!file) {
-    owl_log_error("Unable to open file for logging");
+    gchar *error_message = g_strdup_printf("Unable to open file for logging (%s)", msg->filename);
+    owl_log_error(error_message);
+    g_free(error_message);
     return;
   }
   fprintf(file, "%s", msg->message);

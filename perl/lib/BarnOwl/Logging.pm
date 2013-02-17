@@ -97,6 +97,16 @@ sub _register_variables {
                            . "logged.  Note that this only applies to personal messages."
         });
 
+    BarnOwl::new_variable_string('logbasepath',
+        {
+            default       => '~/zlog',
+            validsettings => '<path>',
+            summary       => 'path for logging non-zephyr messages',
+            description   => "Specifies a directory which must exist.\n"
+                           . "Each non-zephyr protocol gets its own subdirectory in\n"
+                           . "logbasepath, and messages get logged there."
+        });
+
     BarnOwl::new_variable_string('logpath',
         {
             default       => '~/zlog/people',
@@ -122,7 +132,7 @@ Returns a list of filenames in which to log the passed message.
 
 This method calls C<log_filenames> on C<MESSAGE> to determine the list
 of filenames to which C<MESSAGE> gets logged.  All filenames are
-relative to C<MESSAGE->log_base_path>.  If C<MESSAGE->log_to_all_file>
+relative to C<MESSAGE->log_path>.  If C<MESSAGE->log_to_all_file>
 returns true, then the filename C<"all"> is appended to the list of
 filenames.
 
@@ -136,7 +146,7 @@ sub get_filenames {
     my ($m) = @_;
     my @filenames = $m->log_filenames;
     my @rtn;
-    my $log_base_path = BarnOwl::Internal::makepath($m->log_base_path);
+    my $log_path = BarnOwl::Internal::makepath($m->log_path);
     push @filenames, 'all' if $m->log_to_all_file;
     foreach my $filename (@filenames) {
         $filename =~ s/[\/\0~]/_/g;
@@ -149,7 +159,7 @@ sub get_filenames {
         # and greater than or equal to '~', marked file names
         # beginning with a non-alphanumeric or non-ASCII character as
         # 'weird', and rejected filenames longer than 35 characters.
-        push @rtn, File::Spec->catfile($log_base_path, $filename);
+        push @rtn, File::Spec->catfile($log_path, $filename);
     }
     return @rtn;
 }

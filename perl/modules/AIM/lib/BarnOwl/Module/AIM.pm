@@ -37,7 +37,7 @@ use constant {
 
 #####################################################################
 # XXX FIX:
-#  * aim:set foo alias bar doesn't persist between login sessions
+#  * aimset foo alias bar doesn't persist between login sessions
 #
 # TODO:
 #  * Implement typing notifications
@@ -134,29 +134,29 @@ sub register_owl_commands() {
                                           . "away if none of them are currently away, and will set\n"
                                           . "all of them to be present if any of them are away."
                          });
-    BarnOwl::new_command('aim:addbuddy' => \&cmd_add_buddy,
+    BarnOwl::new_command('aimaddbuddy' => \&cmd_add_buddy,
                          {
                              summary     => "add a buddy to an AIM buddylist",
-                             usage       => "aim:addbuddy [-a <account>] [-g <group>] <buddy> ...",
+                             usage       => "aimaddbuddy [-a <account>] [-g <group>] <buddy> ...",
                              description => "Add the named buddy or buddies to your buddylist.\n"
                                           . "If no group is specified, aim:default_buddy_group is\n"
                                           . "used.  If no account is specified, buddies are added\n"
                                           . "to all accounts to which you are logged in."
                          });
-    BarnOwl::new_command('aim:delbuddy' => \&cmd_delete_buddy,
+    BarnOwl::new_command('aimdelbuddy' => \&cmd_delete_buddy,
                          {
                              summary     => "deletes a buddy from an AIM buddylist",
-                             usage       => "aim:delbuddy [-a <account>] [-g <group>] <buddy> ...",
+                             usage       => "aimdelbuddy [-a <account>] [-g <group>] <buddy> ...",
                              description => "Add the named buddy or buddies to your buddylist.\n"
                                           . "If no group is specified, the buddy is deleted from\n"
                                           . "the first group in which it is found.  If no account\n"
                                           . "is specified, buddies are deleted from all accounts\n"
                                           . "to which you are logged in."
                          });
-    BarnOwl::new_command('aim:chat' => \&cmd_aim_chat,
+    BarnOwl::new_command('aimchat' => \&cmd_aim_chat,
                          {
                              summary     => "AIM chat group related commands",
-                             usage       => "aim:chat <command> [-a <account>] [<args>]",
+                             usage       => "aimchat <command> [-a <account>] [<args>]",
                              description => "The following commands are available:\n\n"
                              # XXX TODO: Decide whether or not we actually want this 'exchange' parameter
                                           . "join [-a <account>] <chatroom> [<exchange>]\n"
@@ -191,19 +191,19 @@ sub register_owl_commands() {
                                           . "you know what you are doing.  If you are signed in\n"
                                           . "to more than one account, you must specify and account\n"
                                           . "with which to join the chat group.\n\n"
-                                          . "NOTE: This command is deprecated in favor of the aim:chat\n"
+                                          . "NOTE: This command is deprecated in favor of the aimchat\n"
                                           . "command."
                          });
-    BarnOwl::new_command('aim:show' => \&cmd_aim_show,
+    BarnOwl::new_command('aimshow' => \&cmd_aim_show,
                          {
                              summary     => "get information about an AIM user",
-                             usage       => "aim:show [-a <account>]\n"
-                                          . "aim:show [-a <account>] [-g <group>] <buddy>",
+                             usage       => "aimshow [-a <account>]\n"
+                                          . "aimshow [-a <account>] [-g <group>] <buddy>",
                              description => "Show information either about yourself or about a buddy.\n"
-                                          . "With no parameters, other than an optional account, aim:show\n"
+                                          . "With no parameters, other than an optional account, aimshow\n"
                                           . "will show you information about the given account, or all of\n"
                                           . "the accounts to which you are logged in, if you don't provide one.\n\n"
-                                          . "With a `buddy' parameter, aim:show will display some subset of the\n"
+                                          . "With a `buddy' parameter, aimshow will display some subset of the\n"
                                           . "following information:\n\n"
                                           # XXX TODO: Strip some of these?
                                           . "  alias           - the name under which the buddy will display on your\n"
@@ -231,10 +231,10 @@ sub register_owl_commands() {
                                           . "parameter.  This command will fail if the buddy does not exist in\n"
                                           . "the group you specify.\n\n"
                          });
-    BarnOwl::new_command('aim:set' => \&cmd_aim_set,
+    BarnOwl::new_command('aimset' => \&cmd_aim_set,
                          {
                              summary     => "set information about a buddy on your buddylist",
-                             usage       => "aim:set [-a <account>] [-g <group>] <buddy> <key> <value>",
+                             usage       => "aimset [-a <account>] [-g <group>] <buddy> <key> <value>",
                              description => "Set information about a buddy on your buddy list. You may set\n"
                                           . "any of the following keys:\n\n"
                                           . "  alias   - the name under which the buddy will display on your\n"
@@ -254,26 +254,26 @@ sub register_owl_commands() {
                                           . "parameter.  This command will fail if the buddy does not exist in\n"
                                           . "the group you specify."
                          });
-    BarnOwl::new_command('aim:set_password' => \&cmd_aim_set_password,
+    BarnOwl::new_command('aimset_password' => \&cmd_aim_set_password,
                          {
                              summary     => "change your AIM password",
-                             usage       => "aim:set_password [-a <account>] [<old passowrd> [<new password>]]",
+                             usage       => "aimset_password [-a <account>] [<old passowrd> [<new password>]]",
                              description => "Change your password.  If you are logged in to more than one account\n"
                                           . "you must specify an account with -a.  If you do not provide a password\n"
                                           . "you will be promped for it, and asked to confirm your new password."
                          });
-    BarnOwl::new_command('aim:set_extended_status' => \&cmd_aim_set_extended_status,
+    BarnOwl::new_command('aimset_extended_status' => \&cmd_aim_set_extended_status,
                          {
                              summary     => "change your AIM extended status message",
-                             usage       => "aim:set_extended_status [-a <account>] <status>",
+                             usage       => "aimset_extended_status [-a <account>] <status>",
                              description => "Change your extended status.  If you are logged in to more than one\n"
                                           . "account and do not specify an account with -a, your extended status\n"
                                           . "message will be changed on all accounts to which you are logged in."
                          });
-    BarnOwl::new_command('aim:set_email' => \&cmd_aim_set_email,
+    BarnOwl::new_command('aimset_email' => \&cmd_aim_set_email,
                          {
                              summary     => "change the email address associated with your AIM account",
-                             usage       => "aim:set_email [-a <account>] <email address>",
+                             usage       => "aimset_email [-a <account>] <email address>",
                              description => "Change your email address.  If you are logged in to more than one account\n"
                                           . "you must specify an account with -a.\n\n"
                                           . "You will be emailed instructions at the email address you specify, which\n"
@@ -281,10 +281,10 @@ sub register_owl_commands() {
                                           . "about how to cancel the change request at your old email address, which\n"
                                           . "will be valid for three days."
                          });
-    BarnOwl::new_command('aim:set_screenname_format' => \&cmd_aim_set_screenname_format,
+    BarnOwl::new_command('aimset_screenname_format' => \&cmd_aim_set_screenname_format,
                          {
                              summary     => "change your AIM screenname format",
-                             usage       => "aim:set_screenname_format <screenname>",
+                             usage       => "aimset_screenname_format <screenname>",
                              description => "Change your screenname format.  Only spacing and capitalization can be\n"
                                           . "changed."
                          });
@@ -979,8 +979,8 @@ sub on_chat_invite {
         sender       => $who,
         body         => $body,
         recipient    => $account,
-        yescommand   => BarnOwl::quote(qw(aim:chat accept -a), $account, $chaturl),
-        nocommand    => BarnOwl::quote(qw(aim:chat decline -a), $account, $chaturl)
+        yescommand   => BarnOwl::quote(qw(aimchat accept -a), $account, $chaturl),
+        nocommand    => BarnOwl::quote(qw(aimchat decline -a), $account, $chaturl)
     );
     $props{sender_alias} = $buddy_info->{alias} if $buddy_info->{alias};
     BarnOwl::queue_message(BarnOwl::Message->new(%props));
@@ -1099,8 +1099,8 @@ sub cmd_join {
     my $cmd = shift;
     my $aim = shift;
     die "Usage: $cmd aim [-a account] <chatroom> [exchange]\n" unless lc($aim) eq 'aim'; # XXX TODO: Figure out why this is the syntax.
-    BarnOwl::error("You are using the deprecated command 'join'.  Use 'aim:chat join' instead.");
-    cmd_aim_chat('aim:chat', 'join', @_);
+    BarnOwl::error("You are using the deprecated command 'join'.  Use 'aimchat join' instead.");
+    cmd_aim_chat('aimchat', 'join', @_);
 }
 
 sub cmd_aim_show {

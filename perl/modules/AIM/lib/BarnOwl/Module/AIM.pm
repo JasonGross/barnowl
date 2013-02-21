@@ -681,8 +681,9 @@ sub cmd_aimlogout {
 
 sub cmd_aaway {
     my $cmd = shift;
-    my $message = BarnOwl::quote(@_); # TODO: Enforce properly quoted strings?
-    #die "<message> must be single properly quoted string\n" if scalar @_ != 1;
+    # Enforce properly quoted strings
+    die "<message> must be a single properly quoted string\n" if scalar @_ != 1;
+    my $message = shift; # If we want to accept more strings, use BarnOwl::quote(@_);
     undef $message if $message eq '';
 
     my $onoff = $message // 'on';
